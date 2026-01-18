@@ -11,12 +11,13 @@ import { type SingleInstanceRecord, getInstance } from '@/lib/storage/singleInst
 import { clearSelectedWebsiteId } from '@/lib/storage/websiteSelection';
 import { router } from 'expo-router';
 import * as React from 'react';
-import { Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
   Button,
   Card,
   Dialog,
   Divider,
+  Icon,
   Portal,
   RadioButton,
   Snackbar,
@@ -69,9 +70,10 @@ export default function SettingsScreen() {
 
   const [rangeDialogOpen, setRangeDialogOpen] = React.useState(false);
   const [refreshDialogOpen, setRefreshDialogOpen] = React.useState(false);
+  const [confirmChangeConnectionOpen, setConfirmChangeConnectionOpen] = React.useState(false);
   const [confirmDisconnectOpen, setConfirmDisconnectOpen] = React.useState(false);
-  const [disconnectTarget, setDisconnectTarget] = React.useState<'welcome' | 'choice'>('welcome');
   const [confirmClearCacheOpen, setConfirmClearCacheOpen] = React.useState(false);
+  const [confirmClearWebsiteOpen, setConfirmClearWebsiteOpen] = React.useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -107,13 +109,23 @@ export default function SettingsScreen() {
     []
   );
 
+  const disconnectAndRoute = React.useCallback(
+    async (target: 'welcome' | 'choice') => {
+      await resetOnboarding();
+      router.replace(target === 'choice' ? '/(onboarding)/choice' : '/(onboarding)/welcome');
+    },
+    [resetOnboarding]
+  );
+
+  const handleChangeConnection = React.useCallback(async () => {
+    setConfirmChangeConnectionOpen(false);
+    await disconnectAndRoute('choice');
+  }, [disconnectAndRoute]);
+
   const handleDisconnect = React.useCallback(async () => {
-    const target = disconnectTarget;
     setConfirmDisconnectOpen(false);
-    setDisconnectTarget('welcome');
-    await resetOnboarding();
-    router.replace(target === 'choice' ? '/(onboarding)/choice' : '/(onboarding)/welcome');
-  }, [disconnectTarget, resetOnboarding]);
+    await disconnectAndRoute('welcome');
+  }, [disconnectAndRoute]);
 
   const handleClearCache = React.useCallback(async () => {
     setConfirmClearCacheOpen(false);
@@ -122,15 +134,17 @@ export default function SettingsScreen() {
   }, []);
 
   const handleClearWebsiteSelection = React.useCallback(async () => {
+    setConfirmClearWebsiteOpen(false);
     await clearSelectedWebsiteId();
     setSnack('Website selection cleared.');
   }, []);
 
   const handleResetApp = React.useCallback(async () => {
     setConfirmResetOpen(false);
-    await resetOnboarding();
-    router.replace('/(onboarding)/welcome');
-  }, [resetOnboarding]);
+    // Reset should be stronger than a normal disconnect: clear cached analytics too.
+    await clearAllCached();
+    await disconnectAndRoute('welcome');
+  }, [disconnectAndRoute]);
 
   return (
     <SafeAreaView
@@ -167,6 +181,9 @@ export default function SettingsScreen() {
                 ? `Connected — ${instance.setupType === 'cloud' ? 'Cloud' : 'Self-hosted'}`
                 : 'Not connected.'}
             </Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Only one connection is supported. Disconnect to connect again.
+            </Text>
             {instance ? (
               <>
                 <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -175,13 +192,16 @@ export default function SettingsScreen() {
                 <Button
                   mode="outlined"
                   onPress={() => {
-                    setDisconnectTarget('choice');
-                    setConfirmDisconnectOpen(true);
+                    setConfirmChangeConnectionOpen(true);
                   }}
                 >
                   Change connection
                 </Button>
-                <Button mode="contained" onPress={() => setConfirmDisconnectOpen(true)}>
+                <Button
+                  mode="outlined"
+                  textColor={theme.colors.error}
+                  onPress={() => setConfirmDisconnectOpen(true)}
+                >
                   Disconnect
                 </Button>
               </>
@@ -196,12 +216,18 @@ export default function SettingsScreen() {
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Preferences" />
           <Card.Content style={styles.cardContent}>
-            <Button mode="outlined" onPress={() => setRangeDialogOpen(true)} disabled={isLoading}>
-              Default time range: {labelForRange(defaultTimeRange)}
-            </Button>
-            <Button mode="outlined" onPress={() => setRefreshDialogOpen(true)} disabled={isLoading}>
-              Refresh interval: {labelForInterval(refreshIntervalSeconds)}
-            </Button>
+            <SettingsRow
+              title="Default time range"
+              value={labelForRange(defaultTimeRange)}
+              onPress={() => setRangeDialogOpen(true)}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Refresh interval"
+              value={labelForInterval(refreshIntervalSeconds)}
+              onPress={() => setRefreshDialogOpen(true)}
+              disabled={isLoading}
+            />
           </Card.Content>
         </Card>
 
@@ -226,7 +252,7 @@ export default function SettingsScreen() {
               <View style={styles.rowText}>
                 <Text variant="titleMedium">Background refresh</Text>
                 <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  Allow periodic refresh while the app is not open.
+                  Store your preference for background refresh.
                 </Text>
               </View>
               <Switch
@@ -235,6 +261,9 @@ export default function SettingsScreen() {
                 disabled={isLoading}
               />
             </View>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Note: background refresh isn’t implemented yet.
+            </Text>
           </Card.Content>
         </Card>
 
@@ -244,8 +273,8 @@ export default function SettingsScreen() {
             <Button mode="outlined" onPress={() => setConfirmClearCacheOpen(true)}>
               Clear analytics cache
             </Button>
-            <Button mode="outlined" onPress={handleClearWebsiteSelection}>
-              Clear current website selection
+            <Button mode="outlined" onPress={() => setConfirmClearWebsiteOpen(true)}>
+              Clear website selection
             </Button>
           </Card.Content>
         </Card>
@@ -265,15 +294,25 @@ export default function SettingsScreen() {
           </Card.Content>
         </Card>
 
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+          <Card.Title title="Danger zone" />
+          <Card.Content style={styles.cardContent}>
+            <Button
+              mode="outlined"
+              textColor={theme.colors.error}
+              onPress={() => setConfirmResetOpen(true)}
+            >
+              Reset app data
+            </Button>
+          </Card.Content>
+        </Card>
+
         {__DEV__ ? (
           <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <Card.Title title="Debug" />
             <Card.Content style={styles.cardContent}>
               <Button mode="outlined" onPress={() => router.push('/(app)/debug')}>
                 Open debug screen
-              </Button>
-              <Button mode="contained" onPress={() => setConfirmResetOpen(true)}>
-                Reset app data
               </Button>
             </Card.Content>
           </Card>
@@ -328,6 +367,24 @@ export default function SettingsScreen() {
         </Dialog>
 
         <Dialog
+          visible={confirmChangeConnectionOpen}
+          onDismiss={() => setConfirmChangeConnectionOpen(false)}
+          style={dialogStyle}
+        >
+          <Dialog.Title>Change connection?</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+              This will disconnect the current connection and restart onboarding so you can connect
+              a different Umami.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setConfirmChangeConnectionOpen(false)}>Cancel</Button>
+            <Button onPress={handleChangeConnection}>Continue</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog
           visible={confirmDisconnectOpen}
           onDismiss={() => setConfirmDisconnectOpen(false)}
           style={dialogStyle}
@@ -335,7 +392,7 @@ export default function SettingsScreen() {
           <Dialog.Title>Disconnect?</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-              This removes the current Umami connection from this device and restarts onboarding.
+              This removes the current Umami connection from this device and returns to onboarding.
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
@@ -361,32 +418,80 @@ export default function SettingsScreen() {
           </Dialog.Actions>
         </Dialog>
 
-        {__DEV__ ? (
-          <>
-            <Dialog
-              visible={confirmResetOpen}
-              onDismiss={() => setConfirmResetOpen(false)}
-              style={dialogStyle}
-            >
-              <Dialog.Title>Reset the app?</Dialog.Title>
-              <Dialog.Content>
-                <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                  This clears the connection and restarts onboarding.
-                </Text>
-              </Dialog.Content>
-              <Dialog.Actions>
-                <Button onPress={() => setConfirmResetOpen(false)}>Cancel</Button>
-                <Button onPress={handleResetApp}>Reset</Button>
-              </Dialog.Actions>
-            </Dialog>
-          </>
-        ) : null}
+        <Dialog
+          visible={confirmClearWebsiteOpen}
+          onDismiss={() => setConfirmClearWebsiteOpen(false)}
+          style={dialogStyle}
+        >
+          <Dialog.Title>Clear website selection?</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+              Clears the currently selected website for this device.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setConfirmClearWebsiteOpen(false)}>Cancel</Button>
+            <Button onPress={handleClearWebsiteSelection}>Clear</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog
+          visible={confirmResetOpen}
+          onDismiss={() => setConfirmResetOpen(false)}
+          style={dialogStyle}
+        >
+          <Dialog.Title>Reset app data?</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+              This disconnects Umami, clears website selection, and clears cached analytics data.
+              You’ll be returned to onboarding.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setConfirmResetOpen(false)}>Cancel</Button>
+            <Button onPress={handleResetApp}>Reset</Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
 
       <Snackbar visible={!!snack} onDismiss={() => setSnack(null)} duration={2500}>
         {snack ?? ''}
       </Snackbar>
     </SafeAreaView>
+  );
+}
+
+function SettingsRow({
+  title,
+  value,
+  onPress,
+  disabled,
+}: {
+  title: string;
+  value: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.settingsRowPressable,
+        { opacity: disabled ? 0.5 : pressed ? 0.7 : 1 },
+      ]}
+    >
+      <View style={[styles.settingsRow, { backgroundColor: '#1a1930' }]}>
+        <View style={styles.settingsRowText}>
+          <Text variant="titleMedium">{title}</Text>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            {value}
+          </Text>
+        </View>
+        <Icon source="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -413,6 +518,22 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rowText: {
+    flex: 1,
+    gap: 2,
+  },
+  settingsRowPressable: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  settingsRowText: {
     flex: 1,
     gap: 2,
   },

@@ -15,7 +15,6 @@ export default function WebsitesScreen() {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [websites, setWebsites] = React.useState<UmamiWebsite[]>([]);
-  const [fromCache, setFromCache] = React.useState(false);
   const [selectedWebsiteId, setSelectedWebsiteIdState] = React.useState<string | null>(null);
   const [snack, setSnack] = React.useState<string | null>(null);
   const [faviconErrorById, setFaviconErrorById] = React.useState<Record<string, boolean>>({});
@@ -42,7 +41,6 @@ export default function WebsitesScreen() {
       if (!inst) {
         setError('Not connected.');
         setWebsites([]);
-        setFromCache(false);
         setSelectedWebsiteIdState(null);
         return;
       }
@@ -52,7 +50,6 @@ export default function WebsitesScreen() {
 
       const res = await listWebsitesCached();
       setWebsites(res.data);
-      setFromCache(res.fromCache);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load websites');
     } finally {
@@ -66,6 +63,8 @@ export default function WebsitesScreen() {
       refresh();
     }, [refresh])
   );
+
+  const showSkeletons = isLoading && websites.length === 0;
 
   return (
     <SafeAreaView
@@ -88,7 +87,6 @@ export default function WebsitesScreen() {
           <Text variant="headlineMedium">Websites</Text>
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
             {isLoading ? 'Loading…' : error ? error : `${websites.length} website(s)`}
-            {fromCache ? ' (cached)' : ''}
           </Text>
         </View>
 
@@ -100,7 +98,7 @@ export default function WebsitesScreen() {
           ) : null}
         </View>
 
-        {isLoading ? (
+        {showSkeletons ? (
           <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <Card.Content style={[styles.cardContent, { gap: 10 }]}>
               <SkeletonBlock height={18} width="55%" radius={8} />
@@ -108,7 +106,7 @@ export default function WebsitesScreen() {
             </Card.Content>
           </Card>
         ) : null}
-        {isLoading ? (
+        {showSkeletons ? (
           <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <Card.Content style={[styles.cardContent, { gap: 10 }]}>
               <SkeletonBlock height={18} width="60%" radius={8} />
@@ -116,7 +114,7 @@ export default function WebsitesScreen() {
             </Card.Content>
           </Card>
         ) : null}
-        {isLoading ? (
+        {showSkeletons ? (
           <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <Card.Content style={[styles.cardContent, { gap: 10 }]}>
               <SkeletonBlock height={18} width="50%" radius={8} />
@@ -137,7 +135,6 @@ export default function WebsitesScreen() {
               await setSelectedWebsiteId(w.id);
               setSelectedWebsiteIdState(w.id);
               setSnack(`Selected: ${w.domain}`);
-              router.push('/(app)/overview');
             }}
           >
             <Card.Content style={styles.cardContent}>
