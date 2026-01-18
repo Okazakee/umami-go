@@ -6,16 +6,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const features = [
   {
-    title: 'Manage Instances',
-    description: 'Connect and manage multiple Umami analytics instances',
+    title: 'Single connection',
+    description: 'Connect one Umami instance (Cloud or self-hosted).',
   },
   {
-    title: 'View Analytics',
-    description: 'Monitor your website statistics on the go',
+    title: 'Websites + Overview',
+    description: 'Pick a website, then check an Overview dashboard (with optional Realtime mode).',
   },
   {
-    title: 'Quick Access',
-    description: 'Fast and intuitive interface for all your analytics needs',
+    title: 'Traffic deep dives',
+    description: 'Use More → Traffic for Events, Sessions, Runtime, Compare, and Breakdown.',
   },
 ];
 
@@ -41,7 +41,7 @@ export default function FeaturesScreen() {
             variant="bodyMedium"
             style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
           >
-            Discover what you can do with Umami Go
+            A lightweight mobile dashboard for Umami.
           </Text>
         </View>
         <View style={styles.featuresContainer}>

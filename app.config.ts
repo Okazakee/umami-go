@@ -69,7 +69,7 @@ export default ({ config }: ConfigContext) => {
       splash: {
         image: './assets/splash-icon.png',
         resizeMode: 'contain',
-        backgroundColor: '#ffffff',
+        backgroundColor: '#121022',
       },
       ios: {
         supportsTablet: true,
@@ -78,7 +78,7 @@ export default ({ config }: ConfigContext) => {
       android: {
         adaptiveIcon: {
           foregroundImage: './assets/adaptive-icon.png',
-          backgroundColor: '#ffffff',
+          backgroundColor: '#121022',
         },
         edgeToEdgeEnabled: true,
         predictiveBackGestureEnabled: false,

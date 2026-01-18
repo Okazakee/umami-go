@@ -67,7 +67,7 @@ async function ensureSelfHostedJwt(options?: {
       cache.token = cachedToken;
       cache.verifiedAt = Date.now();
 
-      // Best-effort sync of username/userId without touching display name.
+      // Best-effort sync of username/userId without touching stored metadata.
       if (
         user?.id &&
         (instance.umamiUserId !== user.id || (user.username && instance.username !== user.username))

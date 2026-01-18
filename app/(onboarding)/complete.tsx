@@ -73,7 +73,6 @@ export default function CompleteScreen() {
   const hasSelfHostedEnvVars = hasDevCredentials('self-hosted');
   const hasCloudEnvVars = hasDevCredentials('cloud');
 
-  const [displayName, setDisplayName] = React.useState('');
   const [host, setHost] = React.useState('');
   const [username, setUsername] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -190,7 +189,6 @@ export default function CompleteScreen() {
 
   const handleFinish = async () => {
     // In dev mode, use dev credentials as fallback if inputs are empty
-    const finalDisplayName = displayName.trim();
     let finalHost = host;
     let finalUsername = username;
     let finalPassword = password;
@@ -224,7 +222,6 @@ export default function CompleteScreen() {
         router.push({
           pathname: '/(onboarding)/verify',
           params: {
-            name: finalDisplayName,
             host: finalHost,
             username: finalUsername,
             password: finalPassword,
@@ -234,7 +231,6 @@ export default function CompleteScreen() {
         router.push({
           pathname: '/(onboarding)/verify',
           params: {
-            name: finalDisplayName,
             host: finalHost,
             apiKey: finalApiKey,
           },
@@ -320,30 +316,12 @@ export default function CompleteScreen() {
             variant="bodyLarge"
             style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
           >
-            Enter your connection details
+            Add your connection details. You’ll pick a website after connecting.
           </Text>
         </View>
 
         <View style={styles.formContainer}>
           <View style={styles.form}>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                label="Display name (optional)"
-                value={displayName}
-                onChangeText={setDisplayName}
-                mode="outlined"
-                autoCapitalize="words"
-                autoCorrect={false}
-                style={styles.input}
-              />
-              <Text
-                variant="bodySmall"
-                style={[styles.exampleText, { color: theme.colors.onSurfaceVariant }]}
-              >
-                Example: My Personal Umami
-              </Text>
-            </View>
-
             <View style={styles.inputWrapper}>
               <TextInput
                 label="Host"
@@ -489,7 +467,7 @@ export default function CompleteScreen() {
           style={styles.button}
           disabled={!isFormValid()}
         >
-          Finish
+          Connect
         </Button>
       </View>
     </SafeAreaView>

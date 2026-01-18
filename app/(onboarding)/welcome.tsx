@@ -22,7 +22,7 @@ export default function WelcomeScreen() {
             variant="bodyLarge"
             style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
           >
-            Manage your Umami analytics instances right from your mobile device
+            Connect your Umami and monitor your websites from your phone.
           </Text>
         </View>
       </View>

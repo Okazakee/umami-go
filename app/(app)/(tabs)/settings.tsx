@@ -164,7 +164,7 @@ export default function SettingsScreen() {
           <Card.Content style={styles.cardContent}>
             <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
               {instance
-                ? `${instance.name} — ${instance.setupType === 'cloud' ? 'Cloud' : 'Self-hosted'}`
+                ? `Connected — ${instance.setupType === 'cloud' ? 'Cloud' : 'Self-hosted'}`
                 : 'Not connected.'}
             </Text>
             {instance ? (

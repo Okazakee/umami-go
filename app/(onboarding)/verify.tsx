@@ -18,7 +18,6 @@ export default function VerifyScreen() {
   const theme = useTheme();
   const { completeOnboarding, selectedSetupType } = useOnboarding();
   const params = useLocalSearchParams<{
-    name?: string;
     host?: string;
     username?: string;
     password?: string;
@@ -77,9 +76,8 @@ export default function VerifyScreen() {
             password: params.password,
           });
 
-          const displayName = params.name?.trim();
           await setInstance({
-            name: displayName || `${params.host} (${params.username})`,
+            name: 'Self-hosted',
             host: params.host,
             username: params.username,
             umamiUserId: response.user.id,
@@ -137,9 +135,8 @@ export default function VerifyScreen() {
               ? (data.user as { id?: string; username?: string })
               : (data as { id?: string; username?: string });
 
-          const displayName = params.name?.trim();
           await setInstance({
-            name: displayName || (user.username ? `Umami Cloud (${user.username})` : 'Umami Cloud'),
+            name: 'Umami Cloud',
             host: apiHost,
             username: user.username ?? null,
             umamiUserId: user.id ?? null,
@@ -157,7 +154,7 @@ export default function VerifyScreen() {
         router.replace('/(app)/overview');
       } catch (err) {
         const apiError = err as UmamiApiError;
-        let errorMessage = 'Failed to connect to Umami instance';
+        let errorMessage = 'Failed to connect to Umami';
 
         if (apiError.status === 401 || apiError.status === 403) {
           errorMessage =
@@ -180,7 +177,6 @@ export default function VerifyScreen() {
     completeOnboarding,
     params.apiKey,
     params.host,
-    params.name,
     params.password,
     params.username,
     selectedSetupType,

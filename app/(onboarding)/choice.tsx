@@ -46,7 +46,7 @@ export default function ChoiceScreen() {
             variant="bodyLarge"
             style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
           >
-            Select how you want to use Umami
+            Choose how you want to connect.
           </Text>
         </View>
 
@@ -72,7 +72,7 @@ export default function ChoiceScreen() {
               variant="bodySmall"
               style={[styles.optionDescription, { color: theme.colors.onSurfaceVariant }]}
             >
-              Connect to your own instance
+              Your own Umami server
             </Text>
           </Pressable>
 
@@ -97,7 +97,7 @@ export default function ChoiceScreen() {
               variant="bodySmall"
               style={[styles.optionDescription, { color: theme.colors.onSurfaceVariant }]}
             >
-              Use Umami's cloud service
+              Connect with an API key
             </Text>
           </Pressable>
         </View>
@@ -108,8 +108,8 @@ export default function ChoiceScreen() {
             style={[styles.description, { color: theme.colors.onSurfaceVariant }]}
           >
             {localSelection === 'self-hosted'
-              ? 'You will need: Host, Username, and Password'
-              : 'You will need: Host and API Key'}
+              ? 'You will need: Host, Username, and Password.\nOnly one connection is supported — disconnect in Settings to connect again.'
+              : 'You will need: Host and API key.\nOnly one connection is supported — disconnect in Settings to connect again.'}
           </Text>
           {localSelection === 'cloud' && (
             <Pressable
