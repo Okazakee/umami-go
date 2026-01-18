@@ -7,7 +7,8 @@ import {
   ReferrerRow,
   SectionHeader,
 } from '@/components/overview';
-import { EmptyState, ErrorState, LoadingState, mapRequestErrorToUi } from '@/components/states';
+import { SkeletonBlock } from '@/components/skeleton';
+import { EmptyState, ErrorState, mapRequestErrorToUi } from '@/components/states';
 import {
   type MetricPoint,
   type WebsiteStats,
@@ -39,6 +40,74 @@ import {
 import { Button, Card, Dialog, Icon, Portal, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+function OverviewLoadingSkeleton() {
+  const theme = useTheme();
+  return (
+    <>
+      <View style={styles.grid}>
+        {[0, 1, 2, 3].map((i) => (
+          <Card
+            key={i}
+            mode="contained"
+            style={[styles.kpiSkeletonCard, { backgroundColor: theme.colors.surface }]}
+          >
+            <Card.Content style={{ gap: 10 }}>
+              <SkeletonBlock height={14} width="55%" radius={8} />
+              <SkeletonBlock height={28} width="65%" radius={10} />
+              <SkeletonBlock height={14} width="30%" radius={8} />
+            </Card.Content>
+          </Card>
+        ))}
+      </View>
+
+      <Card mode="contained" style={[styles.bigCard, { backgroundColor: theme.colors.surface }]}>
+        <Card.Content style={styles.bigCardContent}>
+          <View style={styles.bigCardHeader}>
+            <View style={styles.bigCardHeaderLeft}>
+              <SkeletonBlock height={18} width="45%" radius={8} />
+              <SkeletonBlock height={14} width="65%" radius={8} />
+            </View>
+            <SkeletonBlock height={18} width={70} radius={8} />
+          </View>
+          <View style={[styles.chartArea, { backgroundColor: theme.colors.surfaceVariant }]}>
+            <SkeletonBlock height={120} width="100%" radius={14} />
+          </View>
+        </Card.Content>
+      </Card>
+
+      <View style={styles.skeletonSectionHeader}>
+        <SkeletonBlock height={18} width="28%" radius={8} />
+        <SkeletonBlock height={14} width={54} radius={8} />
+      </View>
+      <Card mode="contained" style={[styles.listCard, { backgroundColor: theme.colors.surface }]}>
+        <Card.Content style={styles.listCardContent}>
+          {[0, 1, 2].map((i) => (
+            <View key={`pages-${i}`} style={styles.skeletonListRow}>
+              <SkeletonBlock height={14} width="68%" radius={8} />
+              <SkeletonBlock height={14} width={44} radius={8} />
+            </View>
+          ))}
+        </Card.Content>
+      </Card>
+
+      <View style={styles.skeletonSectionHeader}>
+        <SkeletonBlock height={18} width="30%" radius={8} />
+        <SkeletonBlock height={14} width={54} radius={8} />
+      </View>
+      <Card mode="contained" style={[styles.listCard, { backgroundColor: theme.colors.surface }]}>
+        <Card.Content style={styles.listCardContent}>
+          {[0, 1, 2].map((i) => (
+            <View key={`sources-${i}`} style={styles.skeletonListRow}>
+              <SkeletonBlock height={14} width="62%" radius={8} />
+              <SkeletonBlock height={14} width={44} radius={8} />
+            </View>
+          ))}
+        </Card.Content>
+      </Card>
+    </>
+  );
+}
+
 export default function OverviewScreen() {
   const theme = useTheme<AppTheme>();
   const insets = useSafeAreaInsets();
@@ -46,7 +115,7 @@ export default function OverviewScreen() {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isRealtimeMode, setIsRealtimeMode] = React.useState(false);
   const [selectedWebsiteId, setSelectedWebsiteIdState] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [_isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<unknown | null>(null);
   const [settings, setSettings] = React.useState<AppSettings>(DEFAULT_SETTINGS);
   const dialogStyle = React.useMemo(() => ({ borderRadius: 12 }), []);
@@ -55,6 +124,8 @@ export default function OverviewScreen() {
   const [customEnd, setCustomEnd] = React.useState('');
   const [customRangeError, setCustomRangeError] = React.useState<string | null>(null);
   const [data, setData] = React.useState<{
+    rangeKey: string;
+    websiteId: string;
     stats: WebsiteStats;
     pages: MetricPoint[];
     sources: MetricPoint[];
@@ -63,7 +134,12 @@ export default function OverviewScreen() {
     activeVisitors: number | null;
   } | null>(null);
 
-  const isReady = !!selectedWebsiteId && !!data;
+  const rangeKey = `${settings.defaultTimeRange}:${settings.customRangeStartAt ?? ''}:${settings.customRangeEndAt ?? ''}`;
+  const hasDataForCurrentRange =
+    !!selectedWebsiteId &&
+    !!data &&
+    data.rangeKey === rangeKey &&
+    data.websiteId === selectedWebsiteId;
   const breathe = React.useRef(new Animated.Value(0)).current;
   const breatheAnimRef = React.useRef<Animated.CompositeAnimation | null>(null);
   const selectedWebsiteIdRef = React.useRef<string | null>(null);
@@ -319,18 +395,24 @@ export default function OverviewScreen() {
       : settings.refreshIntervalSeconds * 1000;
   }, [settings.refreshIntervalSeconds]);
 
+  const lastAutoFetchAtRef = React.useRef<number>(0);
+  const requestIdRef = React.useRef(0);
+
   const load = React.useCallback(
-    async (mode: 'initial' | 'pull' = 'initial') => {
+    async (mode: 'initial' | 'pull' | 'revalidate' = 'initial') => {
+      const requestId = ++requestIdRef.current;
       const isPull = mode === 'pull';
+      const isRevalidate = mode === 'revalidate';
       const hasVisibleData = !!dataRef.current && !!selectedWebsiteIdRef.current;
       if (isPull) setIsRefreshing(true);
-      else if (!hasVisibleData) setIsLoading(true);
+      else if (mode === 'initial' && !hasVisibleData) setIsLoading(true);
 
-      if (!hasVisibleData) setError(null);
+      if (!hasVisibleData && !isRevalidate) setError(null);
 
       try {
-        const ttlMs = isPull ? 0 : refreshIntervalMs;
+        const ttlMs = isPull || isRevalidate ? 0 : Number.POSITIVE_INFINITY;
         const selection = await ensureSelectedWebsiteId({ websitesTtlMs: ttlMs });
+        if (requestId !== requestIdRef.current) return;
         setSelectedWebsiteIdState(selection.selectedWebsiteId);
         if (selection.didAutoSelect && selection.selectedWebsiteId) {
           setSnack('Selected your first website.');
@@ -342,11 +424,16 @@ export default function OverviewScreen() {
           return;
         }
 
+        const effectiveRangeKey = `${settings.defaultTimeRange}:${settings.customRangeStartAt ?? ''}:${settings.customRangeEndAt ?? ''}`;
+
+        // Align "now" to the nearest minute so cache keys stay stable and we don't
+        // thrash the local cache with ever-changing endAt timestamps.
         const now = Date.now();
+        const alignedNow = Math.floor(now / 60_000) * 60_000;
         const endAt =
           settings.defaultTimeRange === 'custom' && settings.customRangeEndAt
             ? settings.customRangeEndAt
-            : now;
+            : alignedNow;
         const startAt =
           settings.defaultTimeRange === 'all'
             ? 0
@@ -386,8 +473,11 @@ export default function OverviewScreen() {
             ),
             getWebsiteActiveCached(websiteId, ttlMs),
           ]);
+        if (requestId !== requestIdRef.current) return;
 
         setData({
+          rangeKey: effectiveRangeKey,
+          websiteId,
           stats: statsRes.data,
           pages: pagesRes.data,
           sources: sourcesRes.data,
@@ -396,6 +486,10 @@ export default function OverviewScreen() {
           activeVisitors:
             typeof activeRes.data?.visitors === 'number' ? activeRes.data.visitors : null,
         });
+
+        if (isPull || isRevalidate) {
+          lastAutoFetchAtRef.current = Date.now();
+        }
       } catch (err) {
         // If we already have something on screen, keep it and just notify.
         if (dataRef.current && selectedWebsiteIdRef.current) {
@@ -405,33 +499,44 @@ export default function OverviewScreen() {
           setError(err);
         }
       } finally {
-        setIsRefreshing(false);
+        if (isPull) setIsRefreshing(false);
         setIsLoading(false);
       }
     },
-    [
-      refreshIntervalMs,
-      settings.customRangeEndAt,
-      settings.customRangeStartAt,
-      settings.defaultTimeRange,
-      timezone,
-    ]
+    [settings.customRangeEndAt, settings.customRangeStartAt, settings.defaultTimeRange, timezone]
   );
 
   useFocusEffect(
     React.useCallback(() => {
-      load('initial');
-    }, [load])
+      let cancelled = false;
+      (async () => {
+        await load('initial');
+        if (cancelled) return;
+
+        // Background revalidate without showing the pull-to-refresh spinner.
+        if (settings.refreshIntervalSeconds === 0) return;
+        const now = Date.now();
+        if (now - lastAutoFetchAtRef.current < refreshIntervalMs) return;
+        await load('revalidate');
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [load, refreshIntervalMs, settings.refreshIntervalSeconds])
   );
 
   // When the user changes the time-range pills (or custom dates), refresh immediately.
-  const rangeKey = `${settings.defaultTimeRange}:${settings.customRangeStartAt ?? ''}:${settings.customRangeEndAt ?? ''}`;
   const lastRangeKeyRef = React.useRef<string>(rangeKey);
   React.useEffect(() => {
     if (lastRangeKeyRef.current === rangeKey) return;
     lastRangeKeyRef.current = rangeKey;
     if (!isRealtimeMode) {
-      load('pull');
+      // Switching range should never show previous range data.
+      // Show skeletons while we pull cached (or remote) data for the new range.
+      setError(null);
+      setData(null);
+      setIsLoading(true);
+      load('initial');
     }
   }, [isRealtimeMode, load, rangeKey]);
 
@@ -577,34 +682,27 @@ export default function OverviewScreen() {
           ) : null}
         </View>
 
-        {!isReady ? (
-          isLoading ? (
-            <LoadingState description="Fetching analytics…" />
-          ) : error ? (
+        {!hasDataForCurrentRange ? (
+          error ? (
             (() => {
               const ui = mapRequestErrorToUi(error);
               return (
                 <ErrorState
                   title={ui.title}
                   message={ui.message}
-                  onRetry={ui.onPrimaryPress ?? (() => load('pull'))}
+                  onRetry={ui.onPrimaryPress ?? (() => load('revalidate'))}
                   primaryLabel={ui.primaryLabel ?? 'Retry'}
                   secondaryLabel={ui.onPrimaryPress ? 'Retry' : undefined}
-                  onSecondaryPress={ui.onPrimaryPress ? () => load('pull') : undefined}
+                  onSecondaryPress={ui.onPrimaryPress ? () => load('revalidate') : undefined}
                 />
               );
             })()
-          ) : !selectedWebsiteId ? (
-            <EmptyState
-              title="No websites found"
-              description="Create a website in Umami, then pull to refresh."
-              primaryLabel="Open Websites"
-              onPrimaryPress={() => router.push('/(app)/websites')}
-            />
-          ) : null
+          ) : (
+            <OverviewLoadingSkeleton />
+          )
         ) : null}
 
-        {isReady ? (
+        {hasDataForCurrentRange ? (
           isRealtimeMode ? (
             <>
               <View style={styles.grid}>
@@ -1208,6 +1306,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
   },
+  kpiSkeletonCard: {
+    flex: 1,
+    minWidth: 155,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
   realtimePill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1323,6 +1427,18 @@ const styles = StyleSheet.create({
   },
   listCardContent: {
     gap: 10,
+  },
+  skeletonSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  skeletonListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   snackWrap: {
     paddingTop: 8,

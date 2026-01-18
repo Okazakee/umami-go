@@ -101,7 +101,25 @@ export default function WebsitesScreen() {
         }
       >
         <View style={styles.header}>
-          <Text variant="headlineMedium">Websites</Text>
+          <View style={styles.headerTopRow}>
+            <Text variant="headlineMedium" style={styles.headerTitle}>
+              Websites
+            </Text>
+            <View style={styles.headerButtons}>
+              <IconButton
+                icon="share-variant-outline"
+                size={20}
+                disabled
+                style={styles.headerIconButton}
+              />
+              <IconButton
+                icon="pencil-outline"
+                size={20}
+                disabled
+                style={styles.headerIconButton}
+              />
+            </View>
+          </View>
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
             {isLoading ? 'Loading…' : error ? error : `${websites.length} website(s)`}
           </Text>
@@ -232,6 +250,21 @@ const styles = StyleSheet.create({
   header: {
     gap: 4,
     paddingVertical: 4,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerTitle: {
+    flex: 1,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIconButton: {
+    margin: 0,
   },
   actions: {
     flexDirection: 'row',
