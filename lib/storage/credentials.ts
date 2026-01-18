@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
-const CREDENTIALS_KEY = '@umami-go:credentials';
+// SecureStore keys must only contain alphanumeric characters, ".", "-", and "_"
+const CREDENTIALS_KEY = 'umami_go_credentials';
 const INSTANCE_KEY = '@umami-go:instance';
 
 export interface SavedCredentials {
@@ -21,18 +23,25 @@ export interface SavedInstance {
   apiKey?: string;
 }
 
+/**
+ * Save credentials to SecureStore (encrypted storage).
+ * Sensitive data like passwords, tokens, and API keys are stored securely.
+ */
 export async function saveCredentials(credentials: SavedCredentials): Promise<void> {
   try {
-    await AsyncStorage.setItem(CREDENTIALS_KEY, JSON.stringify(credentials));
+    await SecureStore.setItemAsync(CREDENTIALS_KEY, JSON.stringify(credentials));
   } catch (error) {
     console.error('Error saving credentials:', error);
     throw error;
   }
 }
 
+/**
+ * Get credentials from SecureStore (encrypted storage).
+ */
 export async function getCredentials(): Promise<SavedCredentials | null> {
   try {
-    const value = await AsyncStorage.getItem(CREDENTIALS_KEY);
+    const value = await SecureStore.getItemAsync(CREDENTIALS_KEY);
     return value ? JSON.parse(value) : null;
   } catch (error) {
     console.error('Error loading credentials:', error);
@@ -40,9 +49,12 @@ export async function getCredentials(): Promise<SavedCredentials | null> {
   }
 }
 
+/**
+ * Clear credentials from SecureStore and instance metadata from AsyncStorage.
+ */
 export async function clearCredentials(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(CREDENTIALS_KEY);
+    await SecureStore.deleteItemAsync(CREDENTIALS_KEY);
     await AsyncStorage.removeItem(INSTANCE_KEY);
   } catch (error) {
     console.error('Error clearing credentials:', error);
