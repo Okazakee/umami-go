@@ -7,6 +7,7 @@ import {
   type TimeRangeValue,
   formatTimeRangeLabel,
 } from '@/components/timeRangeFilter';
+import { rgbaFromHex } from '@/lib/color';
 import * as React from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Chip, Divider, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
@@ -216,9 +217,19 @@ function EventRow({
 
   return (
     <Pressable onPress={onPress} style={styles.rowPressable}>
-      <View style={styles.row}>
-        <View style={[styles.rowFill, { width: `${Math.round(clamped * 100)}%` }]} />
-        <View style={[styles.rowBadge, { backgroundColor: '#262642' }]}>
+      <View style={[styles.row, { backgroundColor: theme.colors.surfaceVariant }]}>
+        <View
+          style={[
+            styles.rowFill,
+            {
+              width: `${Math.round(clamped * 100)}%`,
+              backgroundColor: rgbaFromHex(theme.colors.primary, 0.18),
+            },
+          ]}
+        />
+        <View
+          style={[styles.rowBadge, { backgroundColor: rgbaFromHex(theme.colors.primary, 0.14) }]}
+        >
           <Text variant="labelMedium" style={{ color: theme.colors.onSurface }}>
             E
           </Text>
@@ -280,14 +291,12 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#1a1930',
   },
   rowFill: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(75, 55, 254, 0.22)',
   },
   rowBadge: {
     width: 28,

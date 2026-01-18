@@ -1,3 +1,4 @@
+import { rgbaFromHex } from '@/lib/color';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { IconButton, Text, useTheme } from 'react-native-paper';
@@ -62,9 +63,19 @@ export function RankedRow({
 
   return (
     <Pressable onPress={onPress} style={styles.rankRowPressable}>
-      <View style={styles.rankRow}>
-        <View style={[styles.rankRowFill, { width: `${Math.round(clamped * 100)}%` }]} />
-        <View style={[styles.rankBadge, { backgroundColor: '#262642' }]}>
+      <View style={[styles.rankRow, { backgroundColor: theme.colors.surfaceVariant }]}>
+        <View
+          style={[
+            styles.rankRowFill,
+            {
+              width: `${Math.round(clamped * 100)}%`,
+              backgroundColor: rgbaFromHex(theme.colors.primary, 0.18),
+            },
+          ]}
+        />
+        <View
+          style={[styles.rankBadge, { backgroundColor: rgbaFromHex(theme.colors.primary, 0.14) }]}
+        >
           <Text variant="labelMedium" style={{ color: theme.colors.onSurface }}>
             {badgeText ?? String(rank ?? '')}
           </Text>
@@ -114,14 +125,12 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#1a1930',
   },
   rankRowFill: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(75, 55, 254, 0.22)',
   },
   rankBadge: {
     width: 28,

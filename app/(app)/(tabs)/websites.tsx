@@ -1,15 +1,19 @@
 import { SkeletonBlock } from '@/components/skeleton';
 import { type UmamiWebsite, listWebsitesCached } from '@/lib/api/umamiData';
+import { getCachedFaviconUri } from '@/lib/cache/faviconCache';
+import { rgbaFromHex } from '@/lib/color';
+import { faviconUrlForDomain } from '@/lib/favicon';
 import { getInstance } from '@/lib/storage/singleInstance';
 import { getSelectedWebsiteId, setSelectedWebsiteId } from '@/lib/storage/websiteSelection';
 import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
 import { Image, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, IconButton, Snackbar, Text, useTheme } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function WebsitesScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -18,14 +22,7 @@ export default function WebsitesScreen() {
   const [selectedWebsiteId, setSelectedWebsiteIdState] = React.useState<string | null>(null);
   const [snack, setSnack] = React.useState<string | null>(null);
   const [faviconErrorById, setFaviconErrorById] = React.useState<Record<string, boolean>>({});
-
-  const faviconUrlForDomain = React.useCallback((domain: string) => {
-    const clean = domain
-      .replace(/^https?:\/\//, '')
-      .replace(/\/.*$/, '')
-      .trim();
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(clean)}&sz=64`;
-  }, []);
+  const [faviconUriById, setFaviconUriById] = React.useState<Record<string, string>>({});
 
   const faviconFallbackText = React.useCallback((w: UmamiWebsite) => {
     const label = (w.name || w.domain || '?').trim();
@@ -64,15 +61,35 @@ export default function WebsitesScreen() {
     }, [refresh])
   );
 
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // Background-cache favicons and switch to local URIs when ready.
+      for (const w of websites) {
+        const url = faviconUrlForDomain(w.domain);
+        try {
+          const fileUri = await getCachedFaviconUri(url);
+          if (cancelled) return;
+          setFaviconUriById((prev) => (prev[w.id] ? prev : { ...prev, [w.id]: fileUri }));
+        } catch {
+          // ignore; fallback handled by onError + initial letter
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [websites]);
+
   const showSkeletons = isLoading && websites.length === 0;
 
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={['top', 'bottom']}
+      edges={['top']}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 24 + 78 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -129,7 +146,12 @@ export default function WebsitesScreen() {
             mode="contained"
             style={[
               styles.card,
-              { backgroundColor: w.id === selectedWebsiteId ? '#262642' : theme.colors.surface },
+              {
+                backgroundColor:
+                  w.id === selectedWebsiteId
+                    ? rgbaFromHex(theme.colors.primary, 0.12)
+                    : theme.colors.surface,
+              },
             ]}
             onPress={async () => {
               await setSelectedWebsiteId(w.id);
@@ -140,15 +162,20 @@ export default function WebsitesScreen() {
             <Card.Content style={styles.cardContent}>
               <View style={styles.websiteRow}>
                 <View style={styles.faviconWrap}>
-                  {faviconErrorById[w.id] ? (
-                    <View style={[styles.faviconFallback, { backgroundColor: '#262642' }]}>
+                  {faviconErrorById[w.id] && !faviconUriById[w.id] ? (
+                    <View
+                      style={[
+                        styles.faviconFallback,
+                        { backgroundColor: theme.colors.surfaceVariant },
+                      ]}
+                    >
                       <Text variant="labelLarge" style={{ color: theme.colors.onSurface }}>
                         {faviconFallbackText(w)}
                       </Text>
                     </View>
                   ) : (
                     <Image
-                      source={{ uri: faviconUrlForDomain(w.domain) }}
+                      source={{ uri: faviconUriById[w.id] ?? faviconUrlForDomain(w.domain) }}
                       style={styles.favicon}
                       onError={() =>
                         setFaviconErrorById((prev) => ({

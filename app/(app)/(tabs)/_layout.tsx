@@ -12,9 +12,21 @@ export default function AppTabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
+        // Keep screen content above the (overlay) tab bar.
+        // Also set a background so this padding doesn't show up as a white strip.
+        sceneStyle: {
+          backgroundColor: theme.colors.background,
+          paddingBottom: 0,
+        },
         tabBarStyle: {
-          backgroundColor: '#1e1e2e',
-          borderTopColor: '#1e1e2e',
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.surface,
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowColor: 'transparent',
+          shadowOpacity: 0,
+          shadowRadius: 0,
+          shadowOffset: { width: 0, height: 0 },
           paddingTop: 8,
           paddingBottom: 10 + insets.bottom,
           height: 78 + insets.bottom,

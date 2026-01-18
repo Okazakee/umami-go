@@ -1,8 +1,9 @@
+import { rgbaFromHex } from '@/lib/color';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Icon, Snackbar, Text, useTheme } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function MoreRow({
   title,
@@ -18,8 +19,10 @@ function MoreRow({
   const theme = useTheme();
   return (
     <Pressable onPress={onPress} style={styles.rowPressable}>
-      <View style={styles.row}>
-        <View style={[styles.rowIcon, { backgroundColor: '#262642' }]}>
+      <View style={[styles.row, { backgroundColor: theme.colors.surfaceVariant }]}>
+        <View
+          style={[styles.rowIcon, { backgroundColor: rgbaFromHex(theme.colors.primary, 0.14) }]}
+        >
           <Icon source={icon} size={18} color={theme.colors.onSurface} />
         </View>
         <View style={styles.rowText}>
@@ -38,14 +41,18 @@ function MoreRow({
 
 export default function MoreScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [snack, setSnack] = React.useState<string | null>(null);
 
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={['top', 'bottom']}
+      edges={['top']}
     >
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: 24 + 78 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Text variant="headlineMedium">More</Text>
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -197,7 +204,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#1a1930',
   },
   rowIcon: {
     width: 32,

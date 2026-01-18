@@ -7,6 +7,7 @@ import {
   type TimeRangeValue,
   formatTimeRangeLabel,
 } from '@/components/timeRangeFilter';
+import { rgbaFromHex } from '@/lib/color';
 import * as React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Divider, Snackbar, Text, useTheme } from 'react-native-paper';
@@ -130,7 +131,11 @@ export default function TrafficCompareScreen() {
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
               Range B
             </Text>
-            <MockBars points={seriesB} height={110} color="#9a93ff" />
+            <MockBars
+              points={seriesB}
+              height={110}
+              color={rgbaFromHex(theme.colors.primary, 0.45)}
+            />
           </Card.Content>
         </Card>
 

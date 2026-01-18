@@ -6,7 +6,7 @@ export function MockBars({
   points,
   height = 160,
   color,
-  backgroundColor = '#17162a',
+  backgroundColor,
 }: {
   points: Array<{ id: string; value: number }>;
   height?: number;
@@ -15,13 +15,14 @@ export function MockBars({
 }) {
   const theme = useTheme();
   const barColor = color ?? theme.colors.primary;
+  const bg = backgroundColor ?? theme.colors.surfaceVariant;
   const safe = React.useMemo(
     () => points.map((p) => ({ id: p.id, value: Math.max(0.04, Math.min(1, p.value)) })),
     [points]
   );
 
   return (
-    <View style={[styles.wrap, { height, backgroundColor }]}>
+    <View style={[styles.wrap, { height, backgroundColor: bg }]}>
       <View style={styles.row}>
         {safe.map((p) => (
           <View key={p.id} style={styles.barSlot}>

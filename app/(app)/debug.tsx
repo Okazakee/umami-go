@@ -108,7 +108,7 @@ export default function DebugScreen() {
         </View>
 
         {lastError ? (
-          <Card mode="contained" style={[styles.card, { backgroundColor: '#1c1c2c' }]}>
+          <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <Card.Title title="Last error" />
             <Card.Content style={styles.cardContent}>
               <Text variant="bodyMedium" style={{ color: theme.colors.error }}>
@@ -130,7 +130,7 @@ export default function DebugScreen() {
           </Button>
         </View>
 
-        <Card mode="contained" style={[styles.card, { backgroundColor: '#1c1c2c' }]}>
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Runtime" />
           <Card.Content style={styles.cardContent}>
             <Text variant="bodyMedium">__DEV__: {String(__DEV__)}</Text>
@@ -139,7 +139,7 @@ export default function DebugScreen() {
           </Card.Content>
         </Card>
 
-        <Card mode="contained" style={[styles.card, { backgroundColor: '#1c1c2c' }]}>
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Onboarding state" />
           <Card.Content style={styles.cardContent}>
             <Text variant="bodyMedium">isLoading: {String(isLoading)}</Text>
@@ -152,7 +152,7 @@ export default function DebugScreen() {
           </Card.Content>
         </Card>
 
-        <Card mode="contained" style={[styles.card, { backgroundColor: '#1c1c2c' }]}>
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Instances (SQLite)" />
           <Card.Content style={styles.cardContent}>
             {instances.length > 0 ? (
@@ -175,7 +175,7 @@ export default function DebugScreen() {
           </Card.Content>
         </Card>
 
-        <Card mode="contained" style={[styles.card, { backgroundColor: '#1c1c2c' }]}>
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Active instance secrets (SecureStore)" />
           <Card.Content style={styles.cardContent}>
             {activeInstance ? (
@@ -198,7 +198,7 @@ export default function DebugScreen() {
           </Card.Content>
         </Card>
 
-        <Card mode="contained" style={[styles.card, { backgroundColor: '#1c1c2c' }]}>
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Stored credentials (SecureStore)" />
           <Card.Content style={styles.cardContent}>
             {savedCredentials ? (
@@ -223,7 +223,7 @@ export default function DebugScreen() {
           </Card.Content>
         </Card>
 
-        <Card mode="contained" style={[styles.card, { backgroundColor: '#1c1c2c' }]}>
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Dev credentials (app.config.ts extra)" />
           <Card.Content style={styles.cardContent}>
             {devCredentials ? (

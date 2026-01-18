@@ -1,3 +1,5 @@
+import { OverviewMap } from '@/components/OverviewMap';
+import { TrafficDotHeatmap } from '@/components/TrafficDotHeatmap';
 import {
   type DeltaTone,
   KpiCard,
@@ -5,22 +7,27 @@ import {
   ReferrerRow,
   SectionHeader,
 } from '@/components/overview';
+import { rgbaFromHex } from '@/lib/color';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Icon, Text, useTheme } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function OverviewScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [snack, setSnack] = React.useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isRealtimeMode, setIsRealtimeMode] = React.useState(false);
 
-  const days = React.useMemo(() => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], []);
-  const hours = React.useMemo(
-    () => ['0', '2', '4', '6', '8', '10', '12', '14', '16', '18', '20', '22'],
-    []
+  const realtimeViewsColor = React.useMemo(
+    () => rgbaFromHex(theme.colors.primary, 0.85),
+    [theme.colors.primary]
+  );
+  const realtimeVisitorsColor = React.useMemo(
+    () => rgbaFromHex(theme.colors.primary, 0.45),
+    [theme.colors.primary]
   );
 
   const realtimePoints = React.useMemo(
@@ -53,10 +60,10 @@ export default function OverviewScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={['top', 'bottom']}
+      edges={['top']}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 24 + 78 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -72,19 +79,34 @@ export default function OverviewScreen() {
             onPress={() => setIsRealtimeMode((v) => !v)}
             style={[
               styles.realtimePill,
-              isRealtimeMode ? styles.realtimePillOn : styles.realtimePillOff,
+              {
+                backgroundColor: theme.colors.surfaceVariant,
+                borderColor: isRealtimeMode
+                  ? rgbaFromHex(theme.colors.primary, 0.35)
+                  : rgbaFromHex(theme.colors.onSurfaceVariant, 0.22),
+              },
             ]}
           >
             <View
               style={[
                 styles.realtimeDot,
-                isRealtimeMode ? styles.realtimeDotOn : styles.realtimeDotOff,
+                {
+                  backgroundColor: isRealtimeMode
+                    ? theme.colors.primary
+                    : theme.colors.onSurfaceVariant,
+                },
               ]}
             />
-            <Text variant="labelLarge" style={styles.realtimeText}>
+            <Text
+              variant="labelLarge"
+              style={[styles.realtimeText, { color: theme.colors.primary }]}
+            >
               REALTIME
             </Text>
-            <Text variant="labelLarge" style={styles.realtimeStateText}>
+            <Text
+              variant="labelLarge"
+              style={[styles.realtimeStateText, { color: theme.colors.onSurfaceVariant }]}
+            >
               {isRealtimeMode ? 'ON' : 'OFF'}
             </Text>
           </Pressable>
@@ -120,13 +142,15 @@ export default function OverviewScreen() {
                     <Text variant="titleLarge">Visitors vs Views</Text>
                     <View style={styles.legendRow}>
                       <View style={styles.legendItem}>
-                        <View style={[styles.legendDot, styles.legendDotVisitors]} />
+                        <View
+                          style={[styles.legendDot, { backgroundColor: realtimeVisitorsColor }]}
+                        />
                         <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                           Visitors
                         </Text>
                       </View>
                       <View style={styles.legendItem}>
-                        <View style={[styles.legendDot, styles.legendDotViews]} />
+                        <View style={[styles.legendDot, { backgroundColor: realtimeViewsColor }]} />
                         <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                           Views
                         </Text>
@@ -138,20 +162,22 @@ export default function OverviewScreen() {
                   </Text>
                 </View>
 
-                <View style={[styles.rtChartArea, { backgroundColor: '#17162a' }]}>
+                <View
+                  style={[styles.rtChartArea, { backgroundColor: theme.colors.surfaceVariant }]}
+                >
                   {realtimePoints.map((p) => (
                     <View key={p.id} style={styles.rtChartGroup}>
                       <View
                         style={[
                           styles.rtChartBar,
-                          styles.rtChartBarVisitors,
+                          { backgroundColor: realtimeVisitorsColor },
                           { height: `${Math.round(p.visitors * 100)}%` },
                         ]}
                       />
                       <View
                         style={[
                           styles.rtChartBar,
-                          styles.rtChartBarViews,
+                          { backgroundColor: realtimeViewsColor },
                           { height: `${Math.round(p.views * 100)}%` },
                         ]}
                       />
@@ -242,11 +268,7 @@ export default function OverviewScreen() {
               style={[styles.bigCard, { backgroundColor: theme.colors.surface }]}
             >
               <Card.Content style={styles.bigCardContent}>
-                <View style={[styles.mapPreview, { backgroundColor: '#17162a' }]}>
-                  <View style={styles.mapBlob} />
-                  <View style={[styles.mapBlob, styles.mapBlob2]} />
-                  <View style={[styles.mapBlob, styles.mapBlob3]} />
-                </View>
+                <OverviewMap height={170} />
               </Card.Content>
             </Card>
           </>
@@ -294,18 +316,117 @@ export default function OverviewScreen() {
                   </Text>
                 </View>
 
-                <View style={[styles.chartArea, { backgroundColor: '#17162a' }]}>
-                  <View style={[styles.chartBar, { left: '5%', height: '20%' }]} />
-                  <View style={[styles.chartBar, { left: '14%', height: '30%' }]} />
-                  <View style={[styles.chartBar, { left: '23%', height: '55%' }]} />
-                  <View style={[styles.chartBar, { left: '32%', height: '45%' }]} />
-                  <View style={[styles.chartBar, { left: '41%', height: '35%' }]} />
-                  <View style={[styles.chartBar, { left: '50%', height: '25%' }]} />
-                  <View style={[styles.chartBar, { left: '59%', height: '40%' }]} />
-                  <View style={[styles.chartBar, { left: '68%', height: '70%' }]} />
-                  <View style={[styles.chartBar, { left: '77%', height: '22%' }]} />
-                  <View style={[styles.chartBar, { left: '86%', height: '65%' }]} />
-                  <View style={[styles.chartBar, { left: '95%', height: '45%' }]} />
+                <View style={[styles.chartArea, { backgroundColor: theme.colors.surfaceVariant }]}>
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '5%',
+                        height: '20%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '14%',
+                        height: '30%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '23%',
+                        height: '55%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '32%',
+                        height: '45%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '41%',
+                        height: '35%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '50%',
+                        height: '25%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '59%',
+                        height: '40%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '68%',
+                        height: '70%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '77%',
+                        height: '22%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '86%',
+                        height: '65%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: '95%',
+                        height: '45%',
+                        backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
+                      },
+                    ]}
+                  />
                 </View>
 
                 <View style={styles.chartAxis}>
@@ -398,16 +519,7 @@ export default function OverviewScreen() {
               mode="contained"
               style={[styles.bigCard, { backgroundColor: theme.colors.surface }]}
             >
-              <Card.Content style={styles.bigCardContent}>
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  (Mock) World map
-                </Text>
-                <View style={[styles.mapPreview, { backgroundColor: '#17162a' }]}>
-                  <View style={styles.mapBlob} />
-                  <View style={[styles.mapBlob, styles.mapBlob2]} />
-                  <View style={[styles.mapBlob, styles.mapBlob3]} />
-                </View>
-              </Card.Content>
+              <OverviewMap height={250} />
             </Card>
 
             <SectionHeader title="Traffic" hideAction />
@@ -416,26 +528,7 @@ export default function OverviewScreen() {
               style={[styles.bigCard, { backgroundColor: theme.colors.surface }]}
             >
               <Card.Content style={styles.bigCardContent}>
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  (Mock) Visits by day and hour
-                </Text>
-                <View style={[styles.heatmap, { backgroundColor: '#17162a' }]}>
-                  {days.map((day, row) => (
-                    <View key={day} style={styles.heatmapRow}>
-                      {hours.map((hour, col) => (
-                        <View
-                          key={`${day}-${hour}`}
-                          style={[
-                            styles.heatCell,
-                            {
-                              opacity: 0.15 + ((row * 7 + col) % 6) * 0.12,
-                            },
-                          ]}
-                        />
-                      ))}
-                    </View>
-                  ))}
-                </View>
+                <TrafficDotHeatmap />
               </Card.Content>
             </Card>
           </>
@@ -473,32 +566,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: '#1e1e2e',
-  },
-  realtimePillOn: {
-    backgroundColor: '#1e1e2e',
-  },
-  realtimePillOff: {
-    backgroundColor: '#1a1930',
+    borderWidth: 1,
   },
   realtimeDot: {
     width: 9,
     height: 9,
     borderRadius: 999,
   },
-  realtimeDotOn: {
-    backgroundColor: '#4b37fe',
-  },
-  realtimeDotOff: {
-    backgroundColor: '#5c5c75',
-  },
   realtimeText: {
-    color: '#9a93ff',
     letterSpacing: 0.8,
     fontWeight: '700',
   },
   realtimeStateText: {
-    color: '#d6d4ff',
     letterSpacing: 0.8,
     fontWeight: '800',
     opacity: 0.7,
@@ -542,7 +621,6 @@ const styles = StyleSheet.create({
     bottom: 12,
     width: 16,
     borderRadius: 10,
-    backgroundColor: 'rgba(75, 55, 254, 0.55)',
   },
   rtChartArea: {
     height: 210,
@@ -566,12 +644,6 @@ const styles = StyleSheet.create({
     width: 9,
     borderRadius: 8,
   },
-  rtChartBarVisitors: {
-    backgroundColor: 'rgba(160, 150, 255, 0.65)',
-  },
-  rtChartBarViews: {
-    backgroundColor: 'rgba(75, 55, 254, 0.75)',
-  },
   legendRow: {
     flexDirection: 'row',
     gap: 12,
@@ -586,12 +658,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 99,
-  },
-  legendDotVisitors: {
-    backgroundColor: 'rgba(160, 150, 255, 0.9)',
-  },
-  legendDotViews: {
-    backgroundColor: 'rgba(75, 55, 254, 0.95)',
   },
   activityRow: {
     gap: 2,
@@ -617,48 +683,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     padding: 12,
-    gap: 8,
-  },
-  heatmapRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  heatCell: {
-    flex: 1,
-    height: 12,
-    borderRadius: 4,
-    backgroundColor: 'rgba(75, 55, 254, 1)',
-  },
-  mapPreview: {
-    height: 170,
-    borderRadius: 16,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  mapBlob: {
-    position: 'absolute',
-    left: '10%',
-    top: '25%',
-    width: '45%',
-    height: '35%',
-    borderRadius: 999,
-    backgroundColor: 'rgba(75, 55, 254, 0.35)',
-    transform: [{ rotate: '-8deg' }],
-  },
-  mapBlob2: {
-    left: '42%',
-    top: '20%',
-    width: '50%',
-    height: '40%',
-    backgroundColor: 'rgba(75, 55, 254, 0.22)',
-    transform: [{ rotate: '10deg' }],
-  },
-  mapBlob3: {
-    left: '30%',
-    top: '55%',
-    width: '38%',
-    height: '26%',
-    backgroundColor: 'rgba(75, 55, 254, 0.18)',
-    transform: [{ rotate: '0deg' }],
+    gap: 10,
   },
 });

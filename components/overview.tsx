@@ -1,12 +1,14 @@
+import { rgbaFromHex } from '@/lib/color';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Icon, Text, useTheme } from 'react-native-paper';
 
 export type DeltaTone = 'up' | 'down';
 
 export function DeltaChip({ tone, value }: { tone: DeltaTone; value: string }) {
+  const theme = useTheme();
   return (
     <View style={[styles.deltaChip, tone === 'up' ? styles.deltaChipUp : styles.deltaChipDown]}>
-      <Text variant="labelSmall" style={styles.deltaChipText}>
+      <Text variant="labelSmall" style={[styles.deltaChipText, { color: theme.colors.onSurface }]}>
         {tone === 'up' ? '↑ ' : '↓ '}
         {value}
       </Text>
@@ -102,9 +104,19 @@ export function RankedRow({
   const clamped = Math.max(0, Math.min(1, fraction));
   return (
     <Pressable onPress={onPress} style={styles.rankRowPressable}>
-      <View style={styles.rankRow}>
-        <View style={[styles.rankRowFill, { width: `${Math.round(clamped * 100)}%` }]} />
-        <View style={[styles.rankBadge, { backgroundColor: '#262642' }]}>
+      <View style={[styles.rankRow, { backgroundColor: theme.colors.surfaceVariant }]}>
+        <View
+          style={[
+            styles.rankRowFill,
+            {
+              width: `${Math.round(clamped * 100)}%`,
+              backgroundColor: rgbaFromHex(theme.colors.primary, 0.18),
+            },
+          ]}
+        />
+        <View
+          style={[styles.rankBadge, { backgroundColor: rgbaFromHex(theme.colors.primary, 0.14) }]}
+        >
           <Text variant="labelMedium" style={{ color: theme.colors.onSurface }}>
             {rank}
           </Text>
@@ -139,9 +151,19 @@ export function ReferrerRow({
   const clamped = Math.max(0, Math.min(1, fraction));
   return (
     <Pressable onPress={onPress} style={styles.rankRowPressable}>
-      <View style={styles.rankRow}>
-        <View style={[styles.rankRowFill, { width: `${Math.round(clamped * 100)}%` }]} />
-        <View style={[styles.refBadge, { backgroundColor: '#262642' }]}>
+      <View style={[styles.rankRow, { backgroundColor: theme.colors.surfaceVariant }]}>
+        <View
+          style={[
+            styles.rankRowFill,
+            {
+              width: `${Math.round(clamped * 100)}%`,
+              backgroundColor: rgbaFromHex(theme.colors.primary, 0.18),
+            },
+          ]}
+        />
+        <View
+          style={[styles.refBadge, { backgroundColor: rgbaFromHex(theme.colors.primary, 0.14) }]}
+        >
           <Text variant="labelMedium" style={{ color: theme.colors.onSurface }}>
             {iconText}
           </Text>
@@ -204,7 +226,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 135, 60, 0.18)',
   },
   deltaChipText: {
-    color: '#d6d4ff',
     fontWeight: '700',
   },
   rankRowPressable: {
@@ -218,14 +239,12 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#1a1930',
   },
   rankRowFill: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(75, 55, 254, 0.22)',
   },
   rankBadge: {
     width: 28,
