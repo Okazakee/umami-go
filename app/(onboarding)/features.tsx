@@ -23,7 +23,10 @@ export default function FeaturesScreen() {
   const theme = useTheme();
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'bottom']}
+    >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -34,18 +37,24 @@ export default function FeaturesScreen() {
           <Text variant="headlineMedium" style={styles.title}>
             Features
           </Text>
-          <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
+          <Text
+            variant="bodyMedium"
+            style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
+          >
             Discover what you can do with Umami Go
           </Text>
         </View>
         <View style={styles.featuresContainer}>
-          {features.map((feature, index) => (
-            <Card key={index} style={styles.card} mode="outlined">
+          {features.map((feature) => (
+            <Card key={feature.title} style={styles.card} mode="outlined">
               <Card.Content>
                 <Text variant="titleMedium" style={styles.cardTitle}>
                   {feature.title}
                 </Text>
-                <Text variant="bodyMedium" style={[styles.cardDescription, { color: theme.colors.onSurfaceVariant }]}>
+                <Text
+                  variant="bodyMedium"
+                  style={[styles.cardDescription, { color: theme.colors.onSurfaceVariant }]}
+                >
                   {feature.description}
                 </Text>
               </Card.Content>

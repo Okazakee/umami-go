@@ -22,7 +22,7 @@ interface DevCredentials {
 // In production, extra.devCredentials will be undefined/empty
 function getDevCredentials(): DevCredentials | null {
   if (!__DEV__) return null;
-  
+
   const extra = Constants.expoConfig?.extra;
   return (extra?.devCredentials as DevCredentials) || null;
 }
@@ -30,7 +30,7 @@ function getDevCredentials(): DevCredentials | null {
 // Check if dev credentials are available
 function hasDevCredentials(setupType: 'self-hosted' | 'cloud'): boolean {
   if (!__DEV__) return false;
-  
+
   const credentials = getDevCredentials();
   if (!credentials) return false;
 
@@ -40,27 +40,24 @@ function hasDevCredentials(setupType: 'self-hosted' | 'cloud'): boolean {
       credentials.selfHosted?.username &&
       credentials.selfHosted?.password
     );
-  } else {
-    return !!(
-      credentials.cloud?.host &&
-      credentials.cloud?.apiKey
-    );
   }
+  return !!(credentials.cloud?.host && credentials.cloud?.apiKey);
 }
 
 // Get a specific credential value
 function getDevCredential(
   setupType: 'self-hosted' | 'cloud',
-  key: 'host' | 'username' | 'password' | 'apiKey',
+  key: 'host' | 'username' | 'password' | 'apiKey'
 ): string | undefined {
   if (!__DEV__) return undefined;
-  
+
   const credentials = getDevCredentials();
   if (!credentials) return undefined;
 
   if (setupType === 'self-hosted' && credentials.selfHosted) {
     return credentials.selfHosted[key as keyof typeof credentials.selfHosted];
-  } else if (setupType === 'cloud' && credentials.cloud) {
+  }
+  if (setupType === 'cloud' && credentials.cloud) {
     return credentials.cloud[key as keyof typeof credentials.cloud];
   }
 
@@ -75,7 +72,6 @@ export default function CompleteScreen() {
   // Check if dev credentials are available (only in dev mode, never in production)
   const hasSelfHostedEnvVars = hasDevCredentials('self-hosted');
   const hasCloudEnvVars = hasDevCredentials('cloud');
-
 
   const [host, setHost] = React.useState('');
   const [username, setUsername] = React.useState('');
@@ -212,7 +208,10 @@ export default function CompleteScreen() {
     let isValid = true;
 
     if (isSelfHosted) {
-      isValid = validateHost(finalHost) && validateUsername(finalUsername) && validatePassword(finalPassword);
+      isValid =
+        validateHost(finalHost) &&
+        validateUsername(finalUsername) &&
+        validatePassword(finalPassword);
     } else {
       isValid = validateHost(finalHost) && validateApiKey(finalApiKey);
     }
@@ -263,19 +262,18 @@ export default function CompleteScreen() {
           !usernameError &&
           !passwordError
         );
-      } else {
-        // Check if ALL 2 env vars are present
-        if (hasCloudEnvVars) {
-          // If all env vars are present, allow empty inputs OR filled inputs
-          if (!host.trim() && !apiKey.trim()) {
-            return true; // All empty, but env vars present - allow
-          }
-          // Some inputs filled - validate them (must be valid if filled)
-          return (host.trim() === '' || !hostError) && (apiKey.trim() === '' || !apiKeyError);
-        }
-        // If env vars are missing, require form completion
-        return host.trim() !== '' && apiKey.trim() !== '' && !hostError && !apiKeyError;
       }
+      // Check if ALL 2 env vars are present
+      if (hasCloudEnvVars) {
+        // If all env vars are present, allow empty inputs OR filled inputs
+        if (!host.trim() && !apiKey.trim()) {
+          return true; // All empty, but env vars present - allow
+        }
+        // Some inputs filled - validate them (must be valid if filled)
+        return (host.trim() === '' || !hostError) && (apiKey.trim() === '' || !apiKeyError);
+      }
+      // If env vars are missing, require form completion
+      return host.trim() !== '' && apiKey.trim() !== '' && !hostError && !apiKeyError;
     }
 
     // Production mode: always require form completion
@@ -293,7 +291,10 @@ export default function CompleteScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'bottom']}
+    >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -308,7 +309,10 @@ export default function CompleteScreen() {
           <Text variant="displaySmall" style={styles.title}>
             {isSelfHosted ? 'Connect to Self-Hosted' : 'Connect to Umami Cloud'}
           </Text>
-          <Text variant="bodyLarge" style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
+          <Text
+            variant="bodyLarge"
+            style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
+          >
             Enter your connection details
           </Text>
         </View>
@@ -337,7 +341,10 @@ export default function CompleteScreen() {
                   {hostError}
                 </Text>
               ) : (
-                <Text variant="bodySmall" style={[styles.exampleText, { color: theme.colors.onSurfaceVariant }]}>
+                <Text
+                  variant="bodySmall"
+                  style={[styles.exampleText, { color: theme.colors.onSurfaceVariant }]}
+                >
                   Example: https://umami.example.com
                 </Text>
               )}
@@ -362,11 +369,17 @@ export default function CompleteScreen() {
                     style={styles.input}
                   />
                   {usernameError ? (
-                    <Text variant="bodySmall" style={[styles.errorText, { color: theme.colors.error }]}>
+                    <Text
+                      variant="bodySmall"
+                      style={[styles.errorText, { color: theme.colors.error }]}
+                    >
                       {usernameError}
                     </Text>
                   ) : (
-                    <Text variant="bodySmall" style={[styles.exampleText, { color: theme.colors.onSurfaceVariant }]}>
+                    <Text
+                      variant="bodySmall"
+                      style={[styles.exampleText, { color: theme.colors.onSurfaceVariant }]}
+                    >
                       Example: admin
                     </Text>
                   )}
@@ -389,11 +402,17 @@ export default function CompleteScreen() {
                     style={styles.input}
                   />
                   {passwordError ? (
-                    <Text variant="bodySmall" style={[styles.errorText, { color: theme.colors.error }]}>
+                    <Text
+                      variant="bodySmall"
+                      style={[styles.errorText, { color: theme.colors.error }]}
+                    >
                       {passwordError}
                     </Text>
                   ) : (
-                    <Text variant="bodySmall" style={[styles.exampleText, { color: theme.colors.onSurfaceVariant }]}>
+                    <Text
+                      variant="bodySmall"
+                      style={[styles.exampleText, { color: theme.colors.onSurfaceVariant }]}
+                    >
                       Example: your-secure-password
                     </Text>
                   )}
@@ -418,11 +437,17 @@ export default function CompleteScreen() {
                   style={styles.input}
                 />
                 {apiKeyError ? (
-                  <Text variant="bodySmall" style={[styles.errorText, { color: theme.colors.error }]}>
+                  <Text
+                    variant="bodySmall"
+                    style={[styles.errorText, { color: theme.colors.error }]}
+                  >
                     {apiKeyError}
                   </Text>
                 ) : (
-                  <Text variant="bodySmall" style={[styles.exampleText, { color: theme.colors.onSurfaceVariant }]}>
+                  <Text
+                    variant="bodySmall"
+                    style={[styles.exampleText, { color: theme.colors.onSurfaceVariant }]}
+                  >
                     Example: um_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
                   </Text>
                 )}

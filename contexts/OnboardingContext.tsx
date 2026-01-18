@@ -21,7 +21,9 @@ export function OnboardingProvider({
 }) {
   const [isOnboardingComplete, setIsOnboardingComplete] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [selectedSetupType, setSelectedSetupType] = React.useState<'self-hosted' | 'cloud' | null>('self-hosted');
+  const [selectedSetupType, setSelectedSetupType] = React.useState<'self-hosted' | 'cloud' | null>(
+    'self-hosted'
+  );
 
   React.useEffect(() => {
     loadOnboardingStatus();

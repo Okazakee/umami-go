@@ -9,7 +9,7 @@ export default function ChoiceScreen() {
   const theme = useTheme();
   const { setSelectedSetupType, selectedSetupType } = useOnboarding();
   const [localSelection, setLocalSelection] = React.useState<'self-hosted' | 'cloud'>(
-    selectedSetupType || 'self-hosted',
+    selectedSetupType || 'self-hosted'
   );
 
   const handleSelect = (option: 'self-hosted' | 'cloud') => {
@@ -28,7 +28,10 @@ export default function ChoiceScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'bottom']}
+    >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -39,7 +42,10 @@ export default function ChoiceScreen() {
           <Text variant="displaySmall" style={styles.title}>
             Choose Your Setup
           </Text>
-          <Text variant="bodyLarge" style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
+          <Text
+            variant="bodyLarge"
+            style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
+          >
             Select how you want to use Umami
           </Text>
         </View>
@@ -51,7 +57,8 @@ export default function ChoiceScreen() {
               styles.optionCard,
               {
                 backgroundColor: theme.colors.surface,
-                borderColor: localSelection === 'self-hosted' ? theme.colors.primary : theme.colors.outline,
+                borderColor:
+                  localSelection === 'self-hosted' ? theme.colors.primary : theme.colors.outline,
                 borderWidth: localSelection === 'self-hosted' ? 2 : 1,
                 opacity: pressed ? 0.7 : 1,
               },
@@ -61,7 +68,10 @@ export default function ChoiceScreen() {
             <Text variant="titleMedium" style={styles.optionText}>
               Self-Hosted
             </Text>
-            <Text variant="bodySmall" style={[styles.optionDescription, { color: theme.colors.onSurfaceVariant }]}>
+            <Text
+              variant="bodySmall"
+              style={[styles.optionDescription, { color: theme.colors.onSurfaceVariant }]}
+            >
               Connect to your own instance
             </Text>
           </Pressable>
@@ -72,7 +82,8 @@ export default function ChoiceScreen() {
               styles.optionCard,
               {
                 backgroundColor: theme.colors.surface,
-                borderColor: localSelection === 'cloud' ? theme.colors.primary : theme.colors.outline,
+                borderColor:
+                  localSelection === 'cloud' ? theme.colors.primary : theme.colors.outline,
                 borderWidth: localSelection === 'cloud' ? 2 : 1,
                 opacity: pressed ? 0.7 : 1,
               },
@@ -82,24 +93,30 @@ export default function ChoiceScreen() {
             <Text variant="titleMedium" style={styles.optionText}>
               Umami Cloud
             </Text>
-            <Text variant="bodySmall" style={[styles.optionDescription, { color: theme.colors.onSurfaceVariant }]}>
+            <Text
+              variant="bodySmall"
+              style={[styles.optionDescription, { color: theme.colors.onSurfaceVariant }]}
+            >
               Use Umami's cloud service
             </Text>
           </Pressable>
         </View>
 
         <View style={styles.descriptionContainer}>
-          <Text variant="bodyMedium" style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>
+          <Text
+            variant="bodyMedium"
+            style={[styles.description, { color: theme.colors.onSurfaceVariant }]}
+          >
             {localSelection === 'self-hosted'
               ? 'You will need: Host, Username, and Password'
               : 'You will need: Host and API Key'}
           </Text>
           {localSelection === 'cloud' && (
-            <Pressable onPress={handleMoreInfo} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
-              <Text
-                variant="bodySmall"
-                style={[styles.linkText, { color: theme.colors.primary }]}
-              >
+            <Pressable
+              onPress={handleMoreInfo}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            >
+              <Text variant="bodySmall" style={[styles.linkText, { color: theme.colors.primary }]}>
                 More info...
               </Text>
             </Pressable>

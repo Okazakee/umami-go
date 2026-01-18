@@ -2,16 +2,9 @@ import { router } from 'expo-router';
 import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Text, useTheme } from 'react-native-paper';
-import { useOnboarding } from '../../contexts/OnboardingContext';
 
 export default function HomeScreen() {
   const theme = useTheme();
-  const { resetOnboarding } = useOnboarding();
-
-  const handleResetOnboarding = async () => {
-    await resetOnboarding();
-    router.replace('/(onboarding)/welcome');
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -19,13 +12,15 @@ export default function HomeScreen() {
       <Text variant="bodyMedium" style={styles.subtitle}>
         Welcome to your Umami Go dashboard
       </Text>
-      <Button
-        mode="outlined"
-        onPress={handleResetOnboarding}
-        style={styles.resetButton}
-      >
-        Reset Onboarding
-      </Button>
+      {__DEV__ ? (
+        <Button
+          mode="contained"
+          onPress={() => router.push('/(app)/debug')}
+          style={styles.debugButton}
+        >
+          Debug
+        </Button>
+      ) : null}
     </View>
   );
 }
@@ -41,7 +36,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     opacity: 0.7,
   },
-  resetButton: {
+  debugButton: {
     marginTop: 24,
   },
 });

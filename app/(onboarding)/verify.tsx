@@ -3,9 +3,13 @@ import * as React from 'react';
 import { ActivityIndicator, BackHandler, StyleSheet, View } from 'react-native';
 import { Button, Icon, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { UmamiApiClient, type UmamiApiError } from '../../lib/api/umami';
-import { saveCredentials, saveInstance, type SavedCredentials } from '../../lib/storage/credentials';
 import { useOnboarding } from '../../contexts/OnboardingContext';
+import { UmamiApiClient, type UmamiApiError } from '../../lib/api/umami';
+import {
+  type SavedCredentials,
+  saveCredentials,
+  saveInstance,
+} from '../../lib/storage/credentials';
 
 export default function VerifyScreen() {
   const theme = useTheme();
@@ -35,7 +39,7 @@ export default function VerifyScreen() {
       const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
 
       return () => backHandler.remove();
-    }, [error]),
+    }, [error])
   );
 
   // Run verification only once on mount
@@ -89,7 +93,8 @@ export default function VerifyScreen() {
         if (apiError.status === 401) {
           errorMessage = 'Invalid username or password';
         } else if (apiError.status === 0) {
-          errorMessage = 'Unable to reach server. Please check the host URL and your internet connection.';
+          errorMessage =
+            'Unable to reach server. Please check the host URL and your internet connection.';
         } else if (apiError.message) {
           errorMessage = apiError.message;
         }
@@ -106,15 +111,17 @@ export default function VerifyScreen() {
       setError('Missing connection credentials');
       setIsVerifying(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [completeOnboarding, params.host, params.password, params.username, selectedSetupType]);
 
   const handleGoBack = () => {
     router.back();
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'bottom']}
+    >
       <View style={styles.content}>
         {isVerifying ? (
           <>
@@ -123,7 +130,10 @@ export default function VerifyScreen() {
             <Text variant="headlineSmall" style={styles.title}>
               Verifying Connection
             </Text>
-            <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
+            <Text
+              variant="bodyMedium"
+              style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
+            >
               Please wait while we connect to your Umami instance...
             </Text>
           </>

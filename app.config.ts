@@ -1,6 +1,6 @@
-import { ConfigContext } from 'expo/config';
+import * as path from 'node:path';
 import * as dotenv from 'dotenv';
-import * as path from 'path';
+import { ConfigContext } from 'expo/config';
 
 interface DevCredentials {
   selfHosted?: {
@@ -50,7 +50,7 @@ export default ({ config }: ConfigContext) => {
           },
         };
       }
-    } catch (error) {
+    } catch (_error) {
       // .env.local doesn't exist or can't be read - that's okay
     }
   }

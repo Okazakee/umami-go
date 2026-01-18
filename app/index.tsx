@@ -1,4 +1,4 @@
-import { router, useSegments, useRootNavigationState } from 'expo-router';
+import { router, useRootNavigationState, useSegments } from 'expo-router';
 import * as React from 'react';
 import { useOnboarding } from '../contexts/OnboardingContext';
 
@@ -29,7 +29,7 @@ export default function Index() {
     // Only redirect if we're not in the correct group
     // Use a small timeout to ensure navigation state is fully initialized
     if (hasRedirectedRef.current) return;
-    
+
     const timeoutId = setTimeout(() => {
       hasRedirectedRef.current = true;
 

@@ -3,7 +3,9 @@ import { Stack } from 'expo-router';
 export default function AppLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="home" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="debug" />
+      <Stack.Screen name="instance/[instanceId]" />
     </Stack>
   );
 }
