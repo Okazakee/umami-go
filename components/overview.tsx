@@ -55,11 +55,13 @@ export function SectionHeader({
   actionLabel = 'View All',
   onPress,
   hideAction,
+  showAction,
 }: {
   title: string;
   actionLabel?: string;
   onPress?: () => void;
   hideAction?: boolean;
+  showAction?: boolean;
 }) {
   const theme = useTheme();
   return (
@@ -71,6 +73,13 @@ export function SectionHeader({
             {actionLabel}
           </Text>
         </Pressable>
+      ) : !hideAction && showAction ? (
+        <Text
+          variant="titleSmall"
+          style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600' }}
+        >
+          {actionLabel}
+        </Text>
       ) : null}
     </View>
   );

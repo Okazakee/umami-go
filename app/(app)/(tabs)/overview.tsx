@@ -42,10 +42,6 @@ export default function OverviewScreen() {
     router.push(`/(app)/details/${screen}`);
   }, []);
 
-  const openTraffic = React.useCallback((section: string) => {
-    router.push(`/(app)/details/traffic/${section}`);
-  }, []);
-
   const refresh = React.useCallback(async () => {
     setIsRefreshing(true);
     // UI-only mock for now; will wire into data later.
@@ -108,30 +104,10 @@ export default function OverviewScreen() {
         {isRealtimeMode ? (
           <>
             <View style={styles.grid}>
-              <KpiCard
-                title="Views"
-                icon="eye-outline"
-                value="1.50k"
-                onPress={() => openTraffic('overview')}
-              />
-              <KpiCard
-                title="Visitors"
-                icon="account-multiple-outline"
-                value="319"
-                onPress={() => openTraffic('overview')}
-              />
-              <KpiCard
-                title="Events"
-                icon="cursor-default-click"
-                value="84"
-                onPress={() => openTraffic('events')}
-              />
-              <KpiCard
-                title="Countries"
-                icon="map-marker-outline"
-                value="12"
-                onPress={() => openDetails('location')}
-              />
+              <KpiCard title="Views" icon="eye-outline" value="1.50k" />
+              <KpiCard title="Visitors" icon="account-multiple-outline" value="319" />
+              <KpiCard title="Events" icon="cursor-default-click" value="84" />
+              <KpiCard title="Countries" icon="map-marker-outline" value="12" />
             </View>
 
             <Card
@@ -185,11 +161,7 @@ export default function OverviewScreen() {
               </Card.Content>
             </Card>
 
-            <SectionHeader
-              title="Activity"
-              actionLabel="View All"
-              onPress={() => setSnack('Coming soon')}
-            />
+            <SectionHeader title="Activity" />
             <Card
               mode="contained"
               style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
@@ -218,7 +190,7 @@ export default function OverviewScreen() {
 
             <SectionHeader
               title="Pages"
-              actionLabel="View All"
+              actionLabel="View all"
               onPress={() => openDetails('pages')}
             />
             <Card
@@ -226,33 +198,15 @@ export default function OverviewScreen() {
               style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
             >
               <Card.Content style={styles.listCardContent}>
-                <RankedRow
-                  rank={1}
-                  label="/"
-                  value="412"
-                  fraction={1}
-                  onPress={() => openDetails('pages')}
-                />
-                <RankedRow
-                  rank={2}
-                  label="/pricing"
-                  value="128"
-                  fraction={0.32}
-                  onPress={() => openDetails('pages')}
-                />
-                <RankedRow
-                  rank={3}
-                  label="/docs/installation"
-                  value="92"
-                  fraction={0.22}
-                  onPress={() => openDetails('pages')}
-                />
+                <RankedRow rank={1} label="/" value="412" fraction={1} />
+                <RankedRow rank={2} label="/pricing" value="128" fraction={0.32} />
+                <RankedRow rank={3} label="/docs/installation" value="92" fraction={0.22} />
               </Card.Content>
             </Card>
 
             <SectionHeader
               title="Referrers"
-              actionLabel="View All"
+              actionLabel="View all"
               onPress={() => openDetails('sources')}
             />
             <Card
@@ -260,33 +214,15 @@ export default function OverviewScreen() {
               style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
             >
               <Card.Content style={styles.listCardContent}>
-                <ReferrerRow
-                  iconText="G"
-                  label="google.com"
-                  value="322"
-                  fraction={1}
-                  onPress={() => openDetails('sources')}
-                />
-                <ReferrerRow
-                  iconText="T"
-                  label="t.co"
-                  value="204"
-                  fraction={0.63}
-                  onPress={() => openDetails('sources')}
-                />
-                <ReferrerRow
-                  iconText="D"
-                  label="(direct)"
-                  value="118"
-                  fraction={0.37}
-                  onPress={() => openDetails('sources')}
-                />
+                <ReferrerRow iconText="G" label="google.com" value="322" fraction={1} />
+                <ReferrerRow iconText="T" label="t.co" value="204" fraction={0.63} />
+                <ReferrerRow iconText="D" label="(direct)" value="118" fraction={0.37} />
               </Card.Content>
             </Card>
 
             <SectionHeader
               title="Countries"
-              actionLabel="View All"
+              actionLabel="View all"
               onPress={() => openDetails('location')}
             />
             <Card
@@ -294,27 +230,9 @@ export default function OverviewScreen() {
               style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
             >
               <Card.Content style={styles.listCardContent}>
-                <ReferrerRow
-                  iconText="IT"
-                  label="Italy"
-                  value="190"
-                  fraction={1}
-                  onPress={() => openDetails('location')}
-                />
-                <ReferrerRow
-                  iconText="US"
-                  label="United States"
-                  value="53"
-                  fraction={0.28}
-                  onPress={() => openDetails('location')}
-                />
-                <ReferrerRow
-                  iconText="DE"
-                  label="Germany"
-                  value="12"
-                  fraction={0.06}
-                  onPress={() => openDetails('location')}
-                />
+                <ReferrerRow iconText="IT" label="Italy" value="190" fraction={1} />
+                <ReferrerRow iconText="US" label="United States" value="53" fraction={0.28} />
+                <ReferrerRow iconText="DE" label="Germany" value="12" fraction={0.06} />
               </Card.Content>
             </Card>
 
@@ -335,21 +253,13 @@ export default function OverviewScreen() {
         ) : (
           <>
             <View style={styles.grid}>
-              <KpiCard
-                title="Views"
-                icon="eye-outline"
-                value="12.5K"
-                delta="12%"
-                deltaTone="up"
-                onPress={() => openDetails('traffic')}
-              />
+              <KpiCard title="Views" icon="eye-outline" value="12.5K" delta="12%" deltaTone="up" />
               <KpiCard
                 title="Visitors"
                 icon="account-multiple-outline"
                 value="4.2K"
                 delta="5%"
                 deltaTone="up"
-                onPress={() => openDetails('traffic')}
               />
               <KpiCard
                 title="Bounce Rate"
@@ -357,7 +267,6 @@ export default function OverviewScreen() {
                 value="65%"
                 delta="2%"
                 deltaTone="down"
-                onPress={() => openDetails('traffic')}
               />
               <KpiCard
                 title="Avg. Time"
@@ -365,7 +274,6 @@ export default function OverviewScreen() {
                 value="2m 14s"
                 delta="8%"
                 deltaTone="up"
-                onPress={() => openDetails('traffic')}
               />
             </View>
 
@@ -420,130 +328,68 @@ export default function OverviewScreen() {
               </Card.Content>
             </Card>
 
-            <SectionHeader title="Pages" onPress={() => openDetails('pages')} />
+            <SectionHeader
+              title="Pages"
+              actionLabel="View all"
+              onPress={() => openDetails('pages')}
+            />
             <Card
               mode="contained"
               style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
             >
               <Card.Content style={styles.listCardContent}>
-                <RankedRow
-                  rank={1}
-                  label="/"
-                  value="12.5k"
-                  fraction={1}
-                  onPress={() => openDetails('pages')}
-                />
-                <RankedRow
-                  rank={2}
-                  label="/blog/design-trends-2024"
-                  value="8.2k"
-                  fraction={0.66}
-                  onPress={() => openDetails('pages')}
-                />
-                <RankedRow
-                  rank={3}
-                  label="/docs/installation"
-                  value="5.1k"
-                  fraction={0.41}
-                  onPress={() => openDetails('pages')}
-                />
-                <RankedRow
-                  rank={4}
-                  label="/pricing"
-                  value="3.2k"
-                  fraction={0.26}
-                  onPress={() => openDetails('pages')}
-                />
+                <RankedRow rank={1} label="/" value="12.5k" fraction={1} />
+                <RankedRow rank={2} label="/blog/design-trends-2024" value="8.2k" fraction={0.66} />
+                <RankedRow rank={3} label="/docs/installation" value="5.1k" fraction={0.41} />
+                <RankedRow rank={4} label="/pricing" value="3.2k" fraction={0.26} />
               </Card.Content>
             </Card>
 
-            <SectionHeader title="Sources" onPress={() => openDetails('sources')} />
+            <SectionHeader
+              title="Sources"
+              actionLabel="View all"
+              onPress={() => openDetails('sources')}
+            />
             <Card
               mode="contained"
               style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
             >
               <Card.Content style={styles.listCardContent}>
-                <ReferrerRow
-                  iconText="G"
-                  label="google.com"
-                  value="8.9k"
-                  fraction={1}
-                  onPress={() => openDetails('sources')}
-                />
-                <ReferrerRow
-                  iconText="T"
-                  label="t.co"
-                  value="5.4k"
-                  fraction={0.61}
-                  onPress={() => openDetails('sources')}
-                />
-                <ReferrerRow
-                  iconText="D"
-                  label="(direct)"
-                  value="3.1k"
-                  fraction={0.35}
-                  onPress={() => openDetails('sources')}
-                />
+                <ReferrerRow iconText="G" label="google.com" value="8.9k" fraction={1} />
+                <ReferrerRow iconText="T" label="t.co" value="5.4k" fraction={0.61} />
+                <ReferrerRow iconText="D" label="(direct)" value="3.1k" fraction={0.35} />
               </Card.Content>
             </Card>
 
-            <SectionHeader title="Environment" onPress={() => openDetails('environment')} />
+            <SectionHeader
+              title="Environment"
+              actionLabel="View all"
+              onPress={() => openDetails('environment')}
+            />
             <Card
               mode="contained"
               style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
             >
               <Card.Content style={styles.listCardContent}>
-                <ReferrerRow
-                  iconText="C"
-                  label="Chrome"
-                  value="61%"
-                  fraction={0.61}
-                  onPress={() => openDetails('environment')}
-                />
-                <ReferrerRow
-                  iconText="F"
-                  label="Firefox"
-                  value="12%"
-                  fraction={0.12}
-                  onPress={() => openDetails('environment')}
-                />
-                <ReferrerRow
-                  iconText="S"
-                  label="Safari"
-                  value="10%"
-                  fraction={0.1}
-                  onPress={() => openDetails('environment')}
-                />
+                <ReferrerRow iconText="C" label="Chrome" value="61%" fraction={0.61} />
+                <ReferrerRow iconText="F" label="Firefox" value="12%" fraction={0.12} />
+                <ReferrerRow iconText="S" label="Safari" value="10%" fraction={0.1} />
               </Card.Content>
             </Card>
 
-            <SectionHeader title="Location" onPress={() => openDetails('location')} />
+            <SectionHeader
+              title="Location"
+              actionLabel="View all"
+              onPress={() => openDetails('location')}
+            />
             <Card
               mode="contained"
               style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
             >
               <Card.Content style={styles.listCardContent}>
-                <ReferrerRow
-                  iconText="IT"
-                  label="Italy"
-                  value="64%"
-                  fraction={0.64}
-                  onPress={() => openDetails('location')}
-                />
-                <ReferrerRow
-                  iconText="US"
-                  label="United States"
-                  value="18%"
-                  fraction={0.18}
-                  onPress={() => openDetails('location')}
-                />
-                <ReferrerRow
-                  iconText="DE"
-                  label="Germany"
-                  value="4%"
-                  fraction={0.04}
-                  onPress={() => openDetails('location')}
-                />
+                <ReferrerRow iconText="IT" label="Italy" value="64%" fraction={0.64} />
+                <ReferrerRow iconText="US" label="United States" value="18%" fraction={0.18} />
+                <ReferrerRow iconText="DE" label="Germany" value="4%" fraction={0.04} />
               </Card.Content>
             </Card>
 

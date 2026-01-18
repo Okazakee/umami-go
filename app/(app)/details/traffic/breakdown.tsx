@@ -1,7 +1,24 @@
 import { RankedRow, ScreenHeader, SectionHeader } from '@/components/details';
+import { MockBars } from '@/components/mockChart';
+import { KpiCard } from '@/components/overview';
+import {
+  TimeRangeFilter,
+  type TimeRangePreset,
+  type TimeRangeValue,
+  formatTimeRangeLabel,
+} from '@/components/timeRangeFilter';
 import * as React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { Card, SegmentedButtons, Text, useTheme } from 'react-native-paper';
+import {
+  Card,
+  Chip,
+  Divider,
+  SegmentedButtons,
+  Snackbar,
+  Text,
+  TextInput,
+  useTheme,
+} from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Dimension = 'page' | 'referrer' | 'country' | 'device';
@@ -11,6 +28,35 @@ export default function TrafficBreakdownScreen() {
   const [dimension, setDimension] = React.useState<Dimension>('page');
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [snack, setSnack] = React.useState<string | null>(null);
+  const presets = React.useMemo<TimeRangePreset[]>(
+    () => [
+      { key: '24h', label: 'Last 24h' },
+      { key: '7d', label: '7d' },
+      { key: '30d', label: '30d' },
+      { key: '90d', label: '90d' },
+    ],
+    []
+  );
+  const [range, setRange] = React.useState<TimeRangeValue>({ kind: 'preset', preset: '24h' });
+  const [search, setSearch] = React.useState('');
+
+  const chart = React.useMemo(
+    () => [
+      { id: 't00', value: 0.22 },
+      { id: 't01', value: 0.31 },
+      { id: 't02', value: 0.26 },
+      { id: 't03', value: 0.36 },
+      { id: 't04', value: 0.43 },
+      { id: 't05', value: 0.52 },
+      { id: 't06', value: 0.46 },
+      { id: 't07', value: 0.33 },
+      { id: 't08', value: 0.38 },
+      { id: 't09', value: 0.57 },
+      { id: 't10', value: 0.49 },
+      { id: 't11', value: 0.35 },
+    ],
+    []
+  );
 
   const refresh = React.useCallback(async () => {
     setIsRefreshing(true);
@@ -36,6 +82,42 @@ export default function TrafficBreakdownScreen() {
         <ScreenHeader title="Breakdown" subtitle="Traffic (mock)" />
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+          <Card.Title title="Summary" subtitle="Key metrics" />
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.kpiGrid}>
+              <KpiCard title="Views" icon="eye-outline" value="12.5k" />
+              <KpiCard title="Visitors" icon="account-multiple-outline" value="8.2k" />
+              <KpiCard title="Countries" icon="map-marker-outline" value="12" />
+              <KpiCard title="Devices" icon="laptop" value="3" />
+            </View>
+          </Card.Content>
+        </Card>
+
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+          <Card.Title title="Filters" subtitle="Mock controls" />
+          <Card.Content style={styles.cardContent}>
+            <TextInput
+              mode="outlined"
+              label="Search"
+              value={search}
+              onChangeText={setSearch}
+              placeholder="page, referrer, country…"
+              right={
+                search ? <TextInput.Icon icon="close" onPress={() => setSearch('')} /> : undefined
+              }
+            />
+
+            <TimeRangeFilter value={range} onChange={setRange} presets={presets} />
+
+            <Divider />
+
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              (Mock) Breakdown dimension selects what the table shows.
+            </Text>
+          </Card.Content>
+        </Card>
+
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content style={styles.cardContent}>
             <SegmentedButtons
               value={dimension}
@@ -47,6 +129,16 @@ export default function TrafficBreakdownScreen() {
                 { value: 'device', label: 'Device' },
               ]}
             />
+          </Card.Content>
+        </Card>
+
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+          <Card.Title
+            title="Trend"
+            subtitle={`${formatTimeRangeLabel(range, presets)} • ${dimension}`}
+          />
+          <Card.Content style={styles.cardContent}>
+            <MockBars points={chart} height={160} />
           </Card.Content>
         </Card>
 
@@ -156,15 +248,11 @@ export default function TrafficBreakdownScreen() {
             )}
           </Card.Content>
         </Card>
-
-        {snack ? (
-          <View style={styles.snackWrap}>
-            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-              {snack}
-            </Text>
-          </View>
-        ) : null}
       </ScrollView>
+
+      <Snackbar visible={!!snack} onDismiss={() => setSnack(null)} duration={2500}>
+        {snack ?? ''}
+      </Snackbar>
     </SafeAreaView>
   );
 }
@@ -183,11 +271,17 @@ const styles = StyleSheet.create({
   cardContent: {
     gap: 10,
   },
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   list: {
     gap: 10,
-  },
-  snackWrap: {
-    paddingTop: 8,
-    paddingHorizontal: 4,
   },
 });

@@ -123,24 +123,6 @@ export default function MoreScreen() {
           <Card.Title title="Audience" />
           <Card.Content style={styles.cardContent}>
             <MoreRow
-              title="Sources"
-              subtitle="Referrers and channels"
-              icon="share-variant-outline"
-              onPress={() => router.push('/(app)/details/sources')}
-            />
-            <MoreRow
-              title="Environment"
-              subtitle="Browsers, OS, devices"
-              icon="laptop"
-              onPress={() => router.push('/(app)/details/environment')}
-            />
-            <MoreRow
-              title="Location"
-              subtitle="Countries, regions, cities"
-              icon="map-marker-outline"
-              onPress={() => router.push('/(app)/details/location')}
-            />
-            <MoreRow
               title="Segments"
               subtitle="(Placeholder)"
               icon="account-group-outline"

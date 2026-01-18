@@ -9,7 +9,7 @@ export default function TrafficIndex() {
 
   useFocusEffect(
     React.useCallback(() => {
-      router.replace('/(app)/details/traffic/overview');
+      router.replace('/(app)/details/traffic/events');
     }, [])
   );
 
