@@ -5,7 +5,7 @@ import { Button, Icon, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { UmamiApiClient, type UmamiApiError } from '../../lib/api/umami';
-import { setInstanceSecrets, upsertInstance } from '../../lib/storage/instances';
+import { getInstanceById, setInstanceSecrets, upsertInstance } from '../../lib/storage/instances';
 
 function hashBase36(value: string): string {
   let hash = 5381;
@@ -31,6 +31,7 @@ export default function VerifyScreen() {
   const theme = useTheme();
   const { completeOnboarding, selectedSetupType } = useOnboarding();
   const params = useLocalSearchParams<{
+    name?: string;
     host?: string;
     username?: string;
     password?: string;
@@ -68,6 +69,8 @@ export default function VerifyScreen() {
       setError(null);
 
       try {
+        let instanceAlreadyExists = false;
+
         if (selectedSetupType === 'self-hosted') {
           if (!params.host || !params.username || !params.password) {
             setError('Missing connection credentials');
@@ -82,10 +85,12 @@ export default function VerifyScreen() {
             password: params.password,
           });
 
+          const displayName = params.name?.trim();
           const instanceId = stableSelfHostedInstanceId(response.user.id, params.host);
+          instanceAlreadyExists = !!(await getInstanceById(instanceId));
           await upsertInstance({
             id: instanceId,
-            name: `${params.host} (${params.username})`,
+            name: displayName || `${params.host} (${params.username})`,
             host: params.host,
             username: params.username,
             umamiUserId: response.user.id,
@@ -145,9 +150,11 @@ export default function VerifyScreen() {
               : (data as { id?: string; username?: string });
 
           const cloudInstanceId = `cloud_${hashBase36(`${apiHost}|${apiKey}`)}`;
+          instanceAlreadyExists = !!(await getInstanceById(cloudInstanceId));
+          const displayName = params.name?.trim();
           await upsertInstance({
             id: cloudInstanceId,
-            name: user.username ? `Umami Cloud (${user.username})` : 'Umami Cloud',
+            name: displayName || (user.username ? `Umami Cloud (${user.username})` : 'Umami Cloud'),
             host: apiHost,
             username: user.username ?? null,
             umamiUserId: user.id ?? null,
@@ -163,7 +170,11 @@ export default function VerifyScreen() {
 
         // Complete onboarding and navigate to home
         await completeOnboarding();
-        router.replace('/(app)/home');
+        router.replace(
+          instanceAlreadyExists
+            ? { pathname: '/(app)/home', params: { notice: 'instance_exists' } }
+            : '/(app)/home'
+        );
       } catch (err) {
         const apiError = err as UmamiApiError;
         let errorMessage = 'Failed to connect to Umami instance';
@@ -189,6 +200,7 @@ export default function VerifyScreen() {
     completeOnboarding,
     params.apiKey,
     params.host,
+    params.name,
     params.password,
     params.username,
     selectedSetupType,
