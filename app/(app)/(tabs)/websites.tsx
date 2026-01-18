@@ -3,7 +3,7 @@ import { getInstance } from '@/lib/storage/singleInstance';
 import { getSelectedWebsiteId, setSelectedWebsiteId } from '@/lib/storage/websiteSelection';
 import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, IconButton, Snackbar, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,14 +11,16 @@ export default function WebsitesScreen() {
   const theme = useTheme();
 
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [websites, setWebsites] = React.useState<UmamiWebsite[]>([]);
   const [fromCache, setFromCache] = React.useState(false);
   const [selectedWebsiteId, setSelectedWebsiteIdState] = React.useState<string | null>(null);
   const [snack, setSnack] = React.useState<string | null>(null);
 
-  const refresh = React.useCallback(async () => {
-    setIsLoading(true);
+  const refresh = React.useCallback(async (mode: 'initial' | 'pull' = 'initial') => {
+    if (mode === 'pull') setIsRefreshing(true);
+    else setIsLoading(true);
     setError(null);
     try {
       const inst = await getInstance();
@@ -40,6 +42,7 @@ export default function WebsitesScreen() {
       setError(err instanceof Error ? err.message : 'Failed to load websites');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -54,7 +57,18 @@ export default function WebsitesScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       edges={['top', 'bottom']}
     >
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => refresh('pull')}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
+      >
         <View style={styles.header}>
           <Text variant="headlineMedium">Websites</Text>
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -64,9 +78,6 @@ export default function WebsitesScreen() {
         </View>
 
         <View style={styles.actions}>
-          <Button mode="outlined" onPress={refresh} disabled={isLoading}>
-            Refresh
-          </Button>
           {error === 'Not connected.' ? (
             <Button mode="contained" onPress={() => router.push('/(onboarding)/welcome')}>
               Connect

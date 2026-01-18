@@ -29,19 +29,17 @@ export default function AppTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="more"
+        options={{
+          title: 'More',
+          tabBarIcon: ({ color, size }) => <Icon source="dots-grid" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="websites"
         options={{
           title: 'Websites',
           tabBarIcon: ({ color, size }) => <Icon source="web" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="realtime"
-        options={{
-          title: 'Realtime',
-          tabBarIcon: ({ color, size }) => (
-            <Icon source="lightning-bolt" color={color} size={size} />
-          ),
         }}
       />
       <Tabs.Screen
