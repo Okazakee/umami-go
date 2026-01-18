@@ -1,10 +1,9 @@
 import type { UmamiApiError } from '../api/umami';
 import {
+  type InstanceSessionErrorCode,
   ensureInstanceSessionWithOptions,
   invalidateInstanceSession,
-  isAuthError,
   isHostDown,
-  type InstanceSessionErrorCode,
 } from './instanceSession';
 
 export type InstanceRequestErrorCode = InstanceSessionErrorCode | 'http_error' | 'parse_error';
@@ -56,7 +55,6 @@ async function readErrorMessage(res: Response): Promise<string | null> {
   } catch {
     return null;
   }
-  return null;
 }
 
 export async function instanceFetch(
@@ -83,7 +81,9 @@ export async function instanceFetch(
     // If the backend says we're unauthorized, force a refresh and retry once.
     if (res.status === 401 || res.status === 403) {
       invalidateInstanceSession(instanceId);
-      const refreshed = await ensureInstanceSessionWithOptions(instanceId, { forceRevalidate: true });
+      const refreshed = await ensureInstanceSessionWithOptions(instanceId, {
+        forceRevalidate: true,
+      });
       if (!refreshed.ok) {
         throw new InstanceRequestError(refreshed.code, refreshed.message, res.status);
       }
@@ -132,4 +132,3 @@ export async function instanceFetchJson<T>(
     );
   }
 }
-

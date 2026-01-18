@@ -229,7 +229,7 @@ export async function ensureInstanceSessionWithOptions(
   })().finally(() => {
     const entry = cache.get(instanceId);
     if (entry?.inFlight) {
-      delete entry.inFlight;
+      entry.inFlight = undefined;
       cache.set(instanceId, entry);
     }
   });
@@ -241,4 +241,3 @@ export async function ensureInstanceSessionWithOptions(
 export function invalidateInstanceSession(instanceId: string): void {
   cache.delete(instanceId);
 }
-

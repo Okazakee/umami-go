@@ -1,9 +1,9 @@
+import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
+import { appTheme } from '@/lib/theme';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as React from 'react';
 import { PaperProvider } from 'react-native-paper';
-import { OnboardingProvider, useOnboarding } from '../contexts/OnboardingContext';
-import { appTheme } from '../lib/theme';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();

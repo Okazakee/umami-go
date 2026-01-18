@@ -1,8 +1,8 @@
+import { ensureInstanceSession } from '@/lib/session/instanceSession';
 import { Tabs, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { Icon, Snackbar, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ensureInstanceSession } from '../../../../lib/session/instanceSession';
 
 export default function InstanceTabsLayout() {
   const theme = useTheme();
@@ -84,6 +84,9 @@ export default function InstanceTabsLayout() {
           name="overview"
           options={{
             title: 'Overview',
+            href: instanceId
+              ? { pathname: '/(app)/instance/[instanceId]/overview', params: { instanceId } }
+              : null,
             tabBarIcon: ({ color, size }) => (
               <Icon source="view-dashboard-outline" color={color} size={size} />
             ),
@@ -93,6 +96,9 @@ export default function InstanceTabsLayout() {
           name="websites"
           options={{
             title: 'Websites',
+            href: instanceId
+              ? { pathname: '/(app)/instance/[instanceId]/websites', params: { instanceId } }
+              : null,
             tabBarIcon: ({ color, size }) => <Icon source="web" color={color} size={size} />,
           }}
         />
@@ -100,6 +106,9 @@ export default function InstanceTabsLayout() {
           name="realtime"
           options={{
             title: 'Realtime',
+            href: instanceId
+              ? { pathname: '/(app)/instance/[instanceId]/realtime', params: { instanceId } }
+              : null,
             tabBarIcon: ({ color, size }) => (
               <Icon source="access-point" color={color} size={size} />
             ),
@@ -109,6 +118,9 @@ export default function InstanceTabsLayout() {
           name="settings"
           options={{
             title: 'Settings',
+            href: instanceId
+              ? { pathname: '/(app)/instance/[instanceId]/settings', params: { instanceId } }
+              : null,
             tabBarIcon: ({ color, size }) => <Icon source="cog" color={color} size={size} />,
           }}
         />

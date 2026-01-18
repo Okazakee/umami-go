@@ -255,3 +255,14 @@ export async function clearAllInstances(): Promise<void> {
 
   await AsyncStorage.removeItem(LEGACY_INSTANCE_KEY);
 }
+
+export async function deleteInstance(instanceId: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync('DELETE FROM instances WHERE id = ?', [instanceId]);
+  // Best-effort secret cleanup
+  await Promise.all([
+    SecureStore.deleteItemAsync(tokenKey(instanceId)),
+    SecureStore.deleteItemAsync(apiKeyKey(instanceId)),
+    SecureStore.deleteItemAsync(passwordKey(instanceId)),
+  ]);
+}

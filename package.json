@@ -33,8 +33,9 @@
     "react-native-safe-area-context": "^5.x"
   },
   "devDependencies": {
-    "@types/react": "~19.1.0",
     "@biomejs/biome": "^1.9.4",
+    "@types/react": "~19.1.0",
+    "babel-plugin-module-resolver": "^5.0.2",
     "typescript": "~5.9.2"
   },
   "private": true
