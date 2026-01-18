@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as React from 'react';
 import { PaperProvider } from 'react-native-paper';
 import { OnboardingProvider, useOnboarding } from '../contexts/OnboardingContext';
+import { appTheme } from '../lib/theme';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -26,7 +27,7 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <PaperProvider>
+    <PaperProvider theme={appTheme}>
       <OnboardingProvider>
         <RootLayoutNav />
       </OnboardingProvider>

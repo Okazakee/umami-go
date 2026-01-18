@@ -92,7 +92,7 @@ export default function VerifyScreen() {
             setupType: 'self-hosted',
             makeActive: true,
           });
-          await setInstanceSecrets(instanceId, { token: response.token });
+          await setInstanceSecrets(instanceId, { token: response.token, password: params.password });
         } else if (selectedSetupType === 'cloud') {
           if (!params.host || !params.apiKey) {
             setError('Missing connection credentials');

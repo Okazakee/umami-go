@@ -20,6 +20,11 @@ export interface InstanceRecord {
 export interface InstanceSecrets {
   token?: string;
   apiKey?: string;
+  /**
+   * Self-hosted only.
+   * Stored in SecureStore so we can re-login when the JWT expires/revokes.
+   */
+  password?: string;
 }
 
 const LEGACY_INSTANCE_KEY = '@umami-go:instance';
@@ -31,6 +36,10 @@ function tokenKey(instanceId: string) {
 
 function apiKeyKey(instanceId: string) {
   return `umami_go_instance_${instanceId}_api_key`;
+}
+
+function passwordKey(instanceId: string) {
+  return `umami_go_instance_${instanceId}_password`;
 }
 
 type InstanceRow = {
@@ -180,14 +189,27 @@ export async function getActiveInstance(): Promise<InstanceRecord | null> {
   return row ? mapRow(row) : null;
 }
 
+export async function getInstanceById(instanceId: string): Promise<InstanceRecord | null> {
+  await migrateLegacyInstanceIfNeeded();
+
+  const db = await getDb();
+  const row = await db.getFirstAsync<InstanceRow>(
+    'SELECT id, name, host, username, umami_user_id, setup_type, is_active, created_at, updated_at, last_used_at FROM instances WHERE id = ? LIMIT 1',
+    [instanceId]
+  );
+  return row ? mapRow(row) : null;
+}
+
 export async function getInstanceSecrets(instanceId: string): Promise<InstanceSecrets> {
-  const [token, apiKey] = await Promise.all([
+  const [token, apiKey, password] = await Promise.all([
     SecureStore.getItemAsync(tokenKey(instanceId)),
     SecureStore.getItemAsync(apiKeyKey(instanceId)),
+    SecureStore.getItemAsync(passwordKey(instanceId)),
   ]);
   return {
     token: token ?? undefined,
     apiKey: apiKey ?? undefined,
+    password: password ?? undefined,
   };
 }
 
@@ -207,6 +229,12 @@ export async function setInstanceSecrets(
     else ops.push(SecureStore.deleteItemAsync(apiKeyKey(instanceId)));
   }
 
+  if (secrets.password !== undefined) {
+    if (secrets.password)
+      ops.push(SecureStore.setItemAsync(passwordKey(instanceId), secrets.password));
+    else ops.push(SecureStore.deleteItemAsync(passwordKey(instanceId)));
+  }
+
   await Promise.all(ops);
 }
 
@@ -221,6 +249,7 @@ export async function clearAllInstances(): Promise<void> {
     instances.flatMap((i) => [
       SecureStore.deleteItemAsync(tokenKey(i.id)),
       SecureStore.deleteItemAsync(apiKeyKey(i.id)),
+      SecureStore.deleteItemAsync(passwordKey(i.id)),
     ])
   );
 

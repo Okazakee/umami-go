@@ -102,6 +102,8 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 0,
+    borderRadius: 10,
+    overflow: 'hidden',
   },
   cardTitle: {
     marginBottom: 4,

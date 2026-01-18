@@ -45,7 +45,8 @@ export default function HomeScreen() {
     await setActiveInstance(instanceId);
     setActiveId(instanceId);
     router.push({
-      pathname: '/(app)/instance/[instanceId]',
+      // Go straight to a real tab screen; avoids landing on the blank `index` route.
+      pathname: '/(app)/instance/[instanceId]/overview',
       params: { instanceId },
     });
   };
@@ -83,10 +84,12 @@ export default function HomeScreen() {
           instances.map((i) => (
             <Card
               key={i.id}
-              mode="outlined"
+              mode="contained"
               style={[
                 styles.instanceCard,
-                i.id === activeId ? { borderColor: theme.colors.primary, borderWidth: 2 } : null,
+                {
+                  backgroundColor: i.id === activeId ? '#262642' : '#1c1c2c',
+                },
               ]}
               onPress={() => handleOpenInstance(i.id)}
             >
@@ -97,7 +100,7 @@ export default function HomeScreen() {
             </Card>
           ))
         ) : (
-          <Card mode="outlined">
+          <Card mode="contained" style={[styles.instanceCard, { backgroundColor: '#1c1c2c' }]}>
             <Card.Title title="No instances yet" />
             <Card.Content>
               <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -130,5 +133,6 @@ const styles = StyleSheet.create({
   },
   instanceCard: {
     overflow: 'hidden',
+    borderRadius: 16,
   },
 });
