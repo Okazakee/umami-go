@@ -8,11 +8,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import {
   type SavedCredentials,
-  type SavedInstance,
   clearCredentials,
   getCredentials,
-  getInstance,
 } from '../../lib/storage/credentials';
+import {
+  type InstanceRecord,
+  type InstanceSecrets,
+  getActiveInstance,
+  getInstanceSecrets,
+  listInstances,
+} from '../../lib/storage/instances';
 
 type DevCredentials = {
   selfHosted?: {
@@ -45,8 +50,10 @@ export default function DebugScreen() {
   const [lastError, setLastError] = React.useState<string | null>(null);
 
   const [onboardingKeyValue, setOnboardingKeyValue] = React.useState<string | null>(null);
-  const [savedInstance, setSavedInstance] = React.useState<SavedInstance | null>(null);
   const [savedCredentials, setSavedCredentials] = React.useState<SavedCredentials | null>(null);
+  const [instances, setInstances] = React.useState<InstanceRecord[]>([]);
+  const [activeInstance, setActiveInstance] = React.useState<InstanceRecord | null>(null);
+  const [activeSecrets, setActiveSecrets] = React.useState<InstanceSecrets | null>(null);
 
   const devCredentials =
     (__DEV__
@@ -57,14 +64,23 @@ export default function DebugScreen() {
     setIsRefreshing(true);
     setLastError(null);
     try {
-      const [onboardingRaw, instance, creds] = await Promise.all([
+      const [onboardingRaw, creds, allInstances, active] = await Promise.all([
         AsyncStorage.getItem('@umami-go:onboarding-complete'),
-        getInstance(),
         getCredentials(),
+        listInstances(),
+        getActiveInstance(),
       ]);
       setOnboardingKeyValue(onboardingRaw);
-      setSavedInstance(instance);
       setSavedCredentials(creds);
+      setInstances(allInstances);
+      setActiveInstance(active);
+
+      if (active) {
+        const secrets = await getInstanceSecrets(active.id);
+        setActiveSecrets(secrets);
+      } else {
+        setActiveSecrets(null);
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
@@ -167,25 +183,42 @@ export default function DebugScreen() {
         </Card>
 
         <Card mode="outlined">
-          <Card.Title title="Stored instance (AsyncStorage)" />
+          <Card.Title title="Instances (SQLite)" />
           <Card.Content style={styles.cardContent}>
-            {savedInstance ? (
+            {instances.length > 0 ? (
+              instances.map((i) => (
+                <View key={i.id} style={styles.instanceRow}>
+                  <Text variant="bodyMedium">
+                    {i.isActive ? '• (active) ' : '• '}
+                    {i.name}
+                  </Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    {i.setupType} — {i.host}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                (none)
+              </Text>
+            )}
+          </Card.Content>
+        </Card>
+
+        <Card mode="outlined">
+          <Card.Title title="Active instance secrets (SecureStore)" />
+          <Card.Content style={styles.cardContent}>
+            {activeInstance ? (
               <>
-                <Text variant="bodyMedium">id: {savedInstance.id}</Text>
-                <Text variant="bodyMedium">name: {savedInstance.name}</Text>
-                <Text variant="bodyMedium">host: {savedInstance.host}</Text>
-                <Text variant="bodyMedium">setupType: {savedInstance.setupType}</Text>
-                {'token' in savedInstance ? (
-                  <Text variant="bodyMedium">
-                    token: {savedInstance.token ? mask(savedInstance.token, showSecrets) : '(none)'}
-                  </Text>
-                ) : null}
-                {'apiKey' in savedInstance ? (
-                  <Text variant="bodyMedium">
-                    apiKey:{' '}
-                    {savedInstance.apiKey ? mask(savedInstance.apiKey, showSecrets) : '(none)'}
-                  </Text>
-                ) : null}
+                <Text variant="bodyMedium">id: {activeInstance.id}</Text>
+                <Text variant="bodyMedium">name: {activeInstance.name}</Text>
+                <Text variant="bodyMedium">
+                  token: {activeSecrets?.token ? mask(activeSecrets.token, showSecrets) : '(none)'}
+                </Text>
+                <Text variant="bodyMedium">
+                  apiKey:{' '}
+                  {activeSecrets?.apiKey ? mask(activeSecrets.apiKey, showSecrets) : '(none)'}
+                </Text>
               </>
             ) : (
               <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -286,6 +319,10 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     gap: 6,
+  },
+  instanceRow: {
+    gap: 2,
+    paddingVertical: 6,
   },
   divider: {
     marginVertical: 8,

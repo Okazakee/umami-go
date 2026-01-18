@@ -5,11 +5,19 @@ import { Button, Icon, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { UmamiApiClient, type UmamiApiError } from '../../lib/api/umami';
-import {
-  type SavedCredentials,
-  saveCredentials,
-  saveInstance,
-} from '../../lib/storage/credentials';
+import { type SavedCredentials, saveCredentials } from '../../lib/storage/credentials';
+import { setInstanceSecrets, upsertInstance } from '../../lib/storage/instances';
+
+function stableInstanceId(umamiUserId: string, host: string): string {
+  // Avoid collisions across different Umami hosts with same user id.
+  // Keep it SecureStore-key-safe (alphanumeric + "_").
+  let hash = 5381;
+  for (let i = 0; i < host.length; i++) {
+    hash = (hash * 33) ^ host.charCodeAt(i);
+  }
+  const suffix = (hash >>> 0).toString(36);
+  return `${umamiUserId}_${suffix}`;
+}
 
 export default function VerifyScreen() {
   const theme = useTheme();
@@ -75,13 +83,17 @@ export default function VerifyScreen() {
         };
 
         await saveCredentials(savedCredentials);
-        await saveInstance({
-          id: response.user.id,
+        const instanceId = stableInstanceId(response.user.id, params.host);
+        await upsertInstance({
+          id: instanceId,
           name: `${params.host || ''} (${params.username || ''})`,
           host: params.host || '',
+          username: params.username || null,
+          umamiUserId: response.user.id,
           setupType: 'self-hosted',
-          token: response.token,
+          makeActive: true,
         });
+        await setInstanceSecrets(instanceId, { token: response.token });
 
         // Complete onboarding and navigate to home
         await completeOnboarding();

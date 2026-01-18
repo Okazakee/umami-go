@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 // SecureStore keys must only contain alphanumeric characters, ".", "-", and "_"
 const CREDENTIALS_KEY = 'umami_go_credentials';
-const INSTANCE_KEY = '@umami-go:instance';
+const LEGACY_INSTANCE_KEY = '@umami-go:instance';
 
 export interface SavedCredentials {
   host: string;
@@ -12,15 +12,6 @@ export interface SavedCredentials {
   setupType: 'self-hosted' | 'cloud';
   token?: string;
   userId?: string;
-}
-
-export interface SavedInstance {
-  id: string;
-  name: string;
-  host: string;
-  setupType: 'self-hosted' | 'cloud';
-  token?: string;
-  apiKey?: string;
 }
 
 /**
@@ -55,28 +46,10 @@ export async function getCredentials(): Promise<SavedCredentials | null> {
 export async function clearCredentials(): Promise<void> {
   try {
     await SecureStore.deleteItemAsync(CREDENTIALS_KEY);
-    await AsyncStorage.removeItem(INSTANCE_KEY);
+    // Clean up legacy storage if present
+    await AsyncStorage.removeItem(LEGACY_INSTANCE_KEY);
   } catch (error) {
     console.error('Error clearing credentials:', error);
     throw error;
-  }
-}
-
-export async function saveInstance(instance: SavedInstance): Promise<void> {
-  try {
-    await AsyncStorage.setItem(INSTANCE_KEY, JSON.stringify(instance));
-  } catch (error) {
-    console.error('Error saving instance:', error);
-    throw error;
-  }
-}
-
-export async function getInstance(): Promise<SavedInstance | null> {
-  try {
-    const value = await AsyncStorage.getItem(INSTANCE_KEY);
-    return value ? JSON.parse(value) : null;
-  } catch (error) {
-    console.error('Error loading instance:', error);
-    return null;
   }
 }
