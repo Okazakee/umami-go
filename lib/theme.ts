@@ -1,6 +1,18 @@
 import type { AppSettings, ThemePresetId } from '@/lib/storage/settings';
 import { MD3DarkTheme, MD3LightTheme, type MD3Theme } from 'react-native-paper';
 
+export const REALTIME_STATUS_COLORS = {
+  on: '#22c55e',
+  off: '#ef4444',
+} as const;
+
+export type AppTheme = Omit<MD3Theme, 'colors'> & {
+  colors: MD3Theme['colors'] & {
+    realtimeOn: string;
+    realtimeOff: string;
+  };
+};
+
 export const THEME_PRESETS: Array<{
   id: ThemePresetId;
   label: string;
@@ -136,7 +148,7 @@ function presetFor(id: ThemePresetId) {
 export function buildAppTheme(
   settings: Pick<AppSettings, 'colorScheme' | 'useMaterialYou' | 'themePreset'>,
   opts?: { dynamicAccentColor?: string }
-): MD3Theme {
+): AppTheme {
   const isDark = settings.colorScheme === 'dark';
   const base = isDark ? MD3DarkTheme : MD3LightTheme;
 
@@ -166,6 +178,8 @@ export function buildAppTheme(
       surfaceVariant: colors.surfaceVariant,
       onSurfaceVariant,
       outline: colors.outline,
+      realtimeOn: REALTIME_STATUS_COLORS.on,
+      realtimeOff: REALTIME_STATUS_COLORS.off,
       elevation: {
         ...base.colors.elevation,
         level0: colors.background,

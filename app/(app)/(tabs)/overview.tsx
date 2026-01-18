@@ -8,6 +8,7 @@ import {
   SectionHeader,
 } from '@/components/overview';
 import { rgbaFromHex } from '@/lib/color';
+import type { AppTheme } from '@/lib/theme';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -15,7 +16,7 @@ import { Card, Icon, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function OverviewScreen() {
-  const theme = useTheme();
+  const theme = useTheme<AppTheme>();
   const insets = useSafeAreaInsets();
   const [snack, setSnack] = React.useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -92,8 +93,8 @@ export default function OverviewScreen() {
                 styles.realtimeDot,
                 {
                   backgroundColor: isRealtimeMode
-                    ? theme.colors.primary
-                    : theme.colors.onSurfaceVariant,
+                    ? theme.colors.realtimeOn
+                    : theme.colors.realtimeOff,
                 },
               ]}
             />
@@ -102,12 +103,6 @@ export default function OverviewScreen() {
               style={[styles.realtimeText, { color: theme.colors.primary }]}
             >
               REALTIME
-            </Text>
-            <Text
-              variant="labelLarge"
-              style={[styles.realtimeStateText, { color: theme.colors.onSurfaceVariant }]}
-            >
-              {isRealtimeMode ? 'ON' : 'OFF'}
             </Text>
           </Pressable>
 
