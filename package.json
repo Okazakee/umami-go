@@ -1,0 +1,39 @@
+{
+  "name": "umami-go",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "start:clear": "expo start --dev-client --clear",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "prebuild": "expo prebuild",
+    "build:android:debug": "(cd android && ./gradlew assembleDebug)",
+    "build:android:release": "(cd android && ./gradlew assembleRelease)",
+    "build:android:bundle": "(cd android && ./gradlew bundleRelease)",
+    "build:ios:debug": "(cd ios && xcodebuild -workspace umami-go.xcworkspace -scheme umami-go -configuration Debug -archivePath build/umami-go.xcarchive archive)",
+    "build:ios:release": "(cd ios && xcodebuild -workspace umami-go.xcworkspace -scheme umami-go -configuration Release -archivePath build/umami-go.xcarchive archive)",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "check": "biome check ."
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~6.1.2",
+    "@react-native-async-storage/async-storage": "^2.1.0",
+    "expo": "~54.0.31",
+    "expo-router": "~6.0.21",
+    "expo-splash-screen": "~31.0.13",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-paper": "^5.x",
+    "react-native-safe-area-context": "^5.x"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "@biomejs/biome": "^1.9.4",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}
