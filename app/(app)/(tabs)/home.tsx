@@ -1,8 +1,8 @@
 import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Text, useTheme } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button, Card, FAB, Text, useTheme } from 'react-native-paper';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   type InstanceRecord,
   getActiveInstance,
@@ -12,6 +12,7 @@ import {
 
 export default function HomeScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [instances, setInstances] = React.useState<InstanceRecord[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -66,9 +67,6 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.actions}>
-          <Button mode="contained" onPress={handleAddInstance}>
-            Add instance
-          </Button>
           {__DEV__ ? (
             <Button mode="outlined" onPress={() => router.push('/(app)/debug')}>
               Debug
@@ -110,6 +108,20 @@ export default function HomeScreen() {
           </Card>
         )}
       </ScrollView>
+
+      <FAB
+        icon="plus"
+        onPress={handleAddInstance}
+        accessibilityLabel="Add instance"
+        color={theme.colors.onPrimary}
+        style={[
+          styles.fab,
+          {
+            backgroundColor: theme.colors.primary,
+            bottom: insets.bottom,
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }
@@ -134,5 +146,16 @@ const styles = StyleSheet.create({
   instanceCard: {
     overflow: 'hidden',
     borderRadius: 16,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    borderRadius: 18, // squircle-ish
+    // Remove default Paper/Platform shadow.
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
   },
 });

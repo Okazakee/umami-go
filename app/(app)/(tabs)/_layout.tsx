@@ -1,9 +1,11 @@
 import { Tabs } from 'expo-router';
 import * as React from 'react';
 import { Icon, useTheme } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function AppTabsLayout() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -13,6 +15,9 @@ export default function AppTabsLayout() {
         tabBarStyle: {
           backgroundColor: '#1e1e2e',
           borderTopColor: '#1e1e2e',
+          paddingTop: 8,
+          paddingBottom: 10 + insets.bottom,
+          height: 78 + insets.bottom,
         },
       }}
     >

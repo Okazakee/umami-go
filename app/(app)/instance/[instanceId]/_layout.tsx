@@ -1,10 +1,12 @@
 import { Tabs, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { Icon, Snackbar, useTheme } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ensureInstanceSession } from '../../../../lib/session/instanceSession';
 
 export default function InstanceTabsLayout() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ instanceId?: string | string[] }>();
   const instanceId = Array.isArray(params.instanceId) ? params.instanceId[0] : params.instanceId;
 
@@ -65,6 +67,9 @@ export default function InstanceTabsLayout() {
           tabBarStyle: {
             backgroundColor: '#1e1e2e',
             borderTopColor: '#1e1e2e',
+            paddingTop: 8,
+            paddingBottom: 10 + insets.bottom,
+            height: 78 + insets.bottom,
           },
         }}
       >
