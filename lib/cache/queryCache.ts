@@ -50,3 +50,16 @@ export async function clearCached(fullKey: string): Promise<void> {
   memory.delete(fullKey);
   await AsyncStorage.removeItem(fullKey);
 }
+
+export async function clearAllCached(): Promise<void> {
+  memory.clear();
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const cacheKeys = keys.filter((k) => k.startsWith(PREFIX));
+    if (cacheKeys.length > 0) {
+      await AsyncStorage.multiRemove(cacheKeys);
+    }
+  } catch {
+    // ignore
+  }
+}

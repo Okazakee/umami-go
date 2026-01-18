@@ -1,4 +1,5 @@
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { clearAllCached } from '@/lib/cache/queryCache';
 import {
   type DefaultTimeRange,
   type RefreshIntervalSeconds,
@@ -6,6 +7,7 @@ import {
   patchAppSettings,
 } from '@/lib/storage/settings';
 import { type SingleInstanceRecord, getInstance } from '@/lib/storage/singleInstance';
+import { clearSelectedWebsiteId } from '@/lib/storage/websiteSelection';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { Linking, ScrollView, StyleSheet, View } from 'react-native';
@@ -16,6 +18,7 @@ import {
   Divider,
   Portal,
   RadioButton,
+  Snackbar,
   Switch,
   Text,
   useTheme,
@@ -61,10 +64,13 @@ export default function SettingsScreen() {
   const [wifiOnly, setWifiOnly] = React.useState(false);
   const [backgroundRefresh, setBackgroundRefresh] = React.useState(false);
 
+  const [snack, setSnack] = React.useState<string | null>(null);
+
   const [rangeDialogOpen, setRangeDialogOpen] = React.useState(false);
   const [refreshDialogOpen, setRefreshDialogOpen] = React.useState(false);
   const [confirmDisconnectOpen, setConfirmDisconnectOpen] = React.useState(false);
-  const [confirmClearOpen, setConfirmClearOpen] = React.useState(false);
+  const [disconnectTarget, setDisconnectTarget] = React.useState<'welcome' | 'choice'>('welcome');
+  const [confirmClearCacheOpen, setConfirmClearCacheOpen] = React.useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -101,16 +107,23 @@ export default function SettingsScreen() {
   );
 
   const handleDisconnect = React.useCallback(async () => {
+    const target = disconnectTarget;
     setConfirmDisconnectOpen(false);
+    setDisconnectTarget('welcome');
     await resetOnboarding();
-    router.replace('/(onboarding)/welcome');
-  }, [resetOnboarding]);
+    router.replace(target === 'choice' ? '/(onboarding)/choice' : '/(onboarding)/welcome');
+  }, [disconnectTarget, resetOnboarding]);
 
-  const handleClearInstances = React.useCallback(async () => {
-    setConfirmClearOpen(false);
-    await resetOnboarding();
-    router.replace('/(onboarding)/welcome');
-  }, [resetOnboarding]);
+  const handleClearCache = React.useCallback(async () => {
+    setConfirmClearCacheOpen(false);
+    await clearAllCached();
+    setSnack('Cache cleared.');
+  }, []);
+
+  const handleClearWebsiteSelection = React.useCallback(async () => {
+    await clearSelectedWebsiteId();
+    setSnack('Website selection cleared.');
+  }, []);
 
   const handleResetApp = React.useCallback(async () => {
     setConfirmResetOpen(false);
@@ -131,7 +144,7 @@ export default function SettingsScreen() {
         <View style={styles.header}>
           <Text variant="headlineMedium">Settings</Text>
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-            App preferences and troubleshooting.
+            Connection, preferences, and maintenance.
           </Text>
         </View>
 
@@ -148,6 +161,15 @@ export default function SettingsScreen() {
                 <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                   Host: {instance.host}
                 </Text>
+                <Button
+                  mode="outlined"
+                  onPress={() => {
+                    setDisconnectTarget('choice');
+                    setConfirmDisconnectOpen(true);
+                  }}
+                >
+                  Change connection
+                </Button>
                 <Button mode="contained" onPress={() => setConfirmDisconnectOpen(true)}>
                   Disconnect
                 </Button>
@@ -206,16 +228,20 @@ export default function SettingsScreen() {
         </Card>
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-          <Card.Title title="Troubleshooting" />
+          <Card.Title title="Maintenance" />
           <Card.Content style={styles.cardContent}>
-            <Button
-              mode="outlined"
-              onPress={() =>
-                instance ? setConfirmDisconnectOpen(true) : router.push('/(onboarding)/choice')
-              }
-            >
-              Connect / change instance
+            <Button mode="outlined" onPress={() => setConfirmClearCacheOpen(true)}>
+              Clear analytics cache
             </Button>
+            <Button mode="outlined" onPress={handleClearWebsiteSelection}>
+              Clear current website selection
+            </Button>
+          </Card.Content>
+        </Card>
+
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+          <Card.Title title="Help" />
+          <Card.Content style={styles.cardContent}>
             <Button mode="outlined" onPress={() => Linking.openURL('https://umami.is/docs')}>
               Open Umami docs
             </Button>
@@ -235,11 +261,8 @@ export default function SettingsScreen() {
               <Button mode="outlined" onPress={() => router.push('/(app)/debug')}>
                 Open debug screen
               </Button>
-              <Button mode="outlined" onPress={() => setConfirmClearOpen(true)}>
-                Clear instances + secrets
-              </Button>
               <Button mode="contained" onPress={() => setConfirmResetOpen(true)}>
-                Reset onboarding + instances
+                Reset app data
               </Button>
             </Card.Content>
           </Card>
@@ -310,25 +333,25 @@ export default function SettingsScreen() {
           </Dialog.Actions>
         </Dialog>
 
+        <Dialog
+          visible={confirmClearCacheOpen}
+          onDismiss={() => setConfirmClearCacheOpen(false)}
+          style={dialogStyle}
+        >
+          <Dialog.Title>Clear cache?</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+              Clears cached analytics responses stored on this device.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setConfirmClearCacheOpen(false)}>Cancel</Button>
+            <Button onPress={handleClearCache}>Clear</Button>
+          </Dialog.Actions>
+        </Dialog>
+
         {__DEV__ ? (
           <>
-            <Dialog
-              visible={confirmClearOpen}
-              onDismiss={() => setConfirmClearOpen(false)}
-              style={dialogStyle}
-            >
-              <Dialog.Title>Clear instances?</Dialog.Title>
-              <Dialog.Content>
-                <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                  This removes all saved instances and their secrets from this device.
-                </Text>
-              </Dialog.Content>
-              <Dialog.Actions>
-                <Button onPress={() => setConfirmClearOpen(false)}>Cancel</Button>
-                <Button onPress={handleClearInstances}>Clear</Button>
-              </Dialog.Actions>
-            </Dialog>
-
             <Dialog
               visible={confirmResetOpen}
               onDismiss={() => setConfirmResetOpen(false)}
@@ -337,7 +360,7 @@ export default function SettingsScreen() {
               <Dialog.Title>Reset the app?</Dialog.Title>
               <Dialog.Content>
                 <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                  This clears instances and restarts onboarding.
+                  This clears the connection and restarts onboarding.
                 </Text>
               </Dialog.Content>
               <Dialog.Actions>
@@ -348,6 +371,10 @@ export default function SettingsScreen() {
           </>
         ) : null}
       </Portal>
+
+      <Snackbar visible={!!snack} onDismiss={() => setSnack(null)} duration={2500}>
+        {snack ?? ''}
+      </Snackbar>
     </SafeAreaView>
   );
 }
