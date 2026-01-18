@@ -1,4 +1,5 @@
 import { buildCacheKey, getCached, isFresh, setCached } from '@/lib/cache/queryCache';
+import { RequestError } from '@/lib/session/fetch';
 import { sessionFetchJson } from '@/lib/session/fetch';
 import { getInstance } from '@/lib/storage/singleInstance';
 
@@ -28,9 +29,14 @@ export type WebsiteActive = {
   visitors: number;
 };
 
+export type MetricPoint = {
+  x: string;
+  y: number;
+};
+
 async function instanceInfo(): Promise<{ prefix: string; scope: string }> {
   const inst = await getInstance();
-  if (!inst) throw new Error('No instance configured');
+  if (!inst) throw new RequestError('missing_instance', 'No instance configured.');
   const host = inst.host.replace(/\/$/, '');
   return {
     prefix: inst.setupType === 'cloud' ? '/v1' : '/api',
@@ -98,6 +104,62 @@ export async function getWebsiteActiveCached(
   }
 
   const fresh = await sessionFetchJson<WebsiteActive>(`${prefix}/websites/${websiteId}/active`);
+  await setCached(key, fresh);
+  return { data: fresh, fromCache: false };
+}
+
+export async function getWebsiteMetricsCached(
+  websiteId: string,
+  input: {
+    type:
+      | 'path'
+      | 'entry'
+      | 'exit'
+      | 'title'
+      | 'query'
+      | 'referrer'
+      | 'channel'
+      | 'domain'
+      | 'country'
+      | 'region'
+      | 'city'
+      | 'browser'
+      | 'os'
+      | 'device'
+      | 'language'
+      | 'screen'
+      | 'event'
+      | 'hostname'
+      | 'tag';
+    startAt: number;
+    endAt: number;
+    timezone?: string;
+    limit?: number;
+    offset?: number;
+  },
+  ttlMs = 60 * 1000
+): Promise<{ data: MetricPoint[]; fromCache: boolean }> {
+  const { prefix, scope } = await instanceInfo();
+  const qs = toQuery({
+    type: input.type,
+    startAt: input.startAt,
+    endAt: input.endAt,
+    timezone: input.timezone,
+    limit: input.limit,
+    offset: input.offset,
+  });
+  const key = buildCacheKey(
+    `${scope}:metrics:${prefix}:${websiteId}:${input.type}:${input.startAt}:${input.endAt}:${input.timezone ?? ''}:${input.limit ?? ''}:${input.offset ?? ''}`
+  );
+
+  const cached = await getCached<MetricPoint[]>(key);
+  if (cached && isFresh(cached.storedAt, ttlMs)) {
+    return { data: cached.data, fromCache: true };
+  }
+
+  const fresh = await sessionFetchJson<MetricPoint[]>(
+    `${prefix}/websites/${websiteId}/metrics${qs}`
+  );
   await setCached(key, fresh);
   return { data: fresh, fromCache: false };
 }

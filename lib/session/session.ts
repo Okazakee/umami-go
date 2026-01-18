@@ -1,5 +1,5 @@
 import { UmamiApiClient, type UmamiApiError } from '@/lib/api/umami';
-import type { InstanceSecrets } from '@/lib/storage/instances';
+import type { InstanceSecrets } from '@/lib/storage/singleInstance';
 import { getInstance, getSecrets, setInstance, setSecrets } from '@/lib/storage/singleInstance';
 
 export type SessionErrorCode =

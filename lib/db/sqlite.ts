@@ -2,43 +2,46 @@ import * as SQLite from 'expo-sqlite';
 
 // Single DB for the app
 const DB_NAME = 'umami-go.db';
+const LATEST_SCHEMA_VERSION = 1;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 let didInit = false;
 
 async function ensureSchema(db: SQLite.SQLiteDatabase) {
-  // Minimal schema for now; evolve with migrations later.
+  // Base pragmas
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
-
-    CREATE TABLE IF NOT EXISTS instances (
-      id TEXT PRIMARY KEY NOT NULL,
-      name TEXT NOT NULL,
-      host TEXT NOT NULL,
-      username TEXT,
-      umami_user_id TEXT,
-      setup_type TEXT NOT NULL,
-      is_active INTEGER NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL,
-      last_used_at INTEGER
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_instances_is_active ON instances(is_active);
-    CREATE INDEX IF NOT EXISTS idx_instances_last_used_at ON instances(last_used_at);
+    PRAGMA foreign_keys = ON;
   `);
 
-  // Best-effort column adds for existing installs
-  try {
-    await db.execAsync('ALTER TABLE instances ADD COLUMN username TEXT');
-  } catch {
-    // ignore
+  const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  const current = row?.user_version ?? 0;
+
+  if (current < 1) {
+    // v1: analytics cache store
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS cache_entries (
+        key TEXT PRIMARY KEY NOT NULL,
+        stored_at INTEGER NOT NULL,
+        data_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_cache_entries_stored_at ON cache_entries(stored_at);
+    `);
+
+    // Remove legacy table if present.
+    try {
+      await db.execAsync('DROP TABLE IF EXISTS instances;');
+    } catch {
+      // ignore
+    }
+
+    await db.execAsync('PRAGMA user_version = 1;');
   }
 
-  try {
-    await db.execAsync('ALTER TABLE instances ADD COLUMN umami_user_id TEXT');
-  } catch {
-    // ignore
+  if (current > LATEST_SCHEMA_VERSION) {
+    // Future-proofing: app downgraded. Keep running with latest known schema.
+    // We intentionally do nothing here.
   }
 }
 

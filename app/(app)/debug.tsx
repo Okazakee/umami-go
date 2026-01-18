@@ -6,14 +6,8 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Divider, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboarding } from '../../contexts/OnboardingContext';
-import { type SavedCredentials, getCredentials } from '../../lib/storage/credentials';
-import {
-  type InstanceRecord,
-  type InstanceSecrets,
-  getActiveInstance,
-  getInstanceSecrets,
-  listInstances,
-} from '../../lib/storage/instances';
+import { getInstance, getSecrets } from '../../lib/storage/singleInstance';
+import { getSelectedWebsiteId } from '../../lib/storage/websiteSelection';
 
 type DevCredentials = {
   selfHosted?: {
@@ -46,10 +40,12 @@ export default function DebugScreen() {
   const [lastError, setLastError] = React.useState<string | null>(null);
 
   const [onboardingKeyValue, setOnboardingKeyValue] = React.useState<string | null>(null);
-  const [savedCredentials, setSavedCredentials] = React.useState<SavedCredentials | null>(null);
-  const [instances, setInstances] = React.useState<InstanceRecord[]>([]);
-  const [activeInstance, setActiveInstance] = React.useState<InstanceRecord | null>(null);
-  const [activeSecrets, setActiveSecrets] = React.useState<InstanceSecrets | null>(null);
+  const [instance, setInstanceState] =
+    React.useState<Awaited<ReturnType<typeof getInstance>>>(null);
+  const [secrets, setSecretsState] = React.useState<Awaited<ReturnType<typeof getSecrets>> | null>(
+    null
+  );
+  const [selectedWebsiteId, setSelectedWebsiteIdState] = React.useState<string | null>(null);
 
   const devCredentials =
     (__DEV__
@@ -60,23 +56,16 @@ export default function DebugScreen() {
     setIsRefreshing(true);
     setLastError(null);
     try {
-      const [onboardingRaw, creds, allInstances, active] = await Promise.all([
+      const [onboardingRaw, inst, sec, websiteId] = await Promise.all([
         AsyncStorage.getItem('@umami-go:onboarding-complete'),
-        getCredentials(),
-        listInstances(),
-        getActiveInstance(),
+        getInstance(),
+        getSecrets(),
+        getSelectedWebsiteId(),
       ]);
       setOnboardingKeyValue(onboardingRaw);
-      setSavedCredentials(creds);
-      setInstances(allInstances);
-      setActiveInstance(active);
-
-      if (active) {
-        const secrets = await getInstanceSecrets(active.id);
-        setActiveSecrets(secrets);
-      } else {
-        setActiveSecrets(null);
-      }
+      setInstanceState(inst);
+      setSecretsState(sec);
+      setSelectedWebsiteIdState(websiteId);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
@@ -145,6 +134,7 @@ export default function DebugScreen() {
             <Text variant="bodyMedium">isLoading: {String(isLoading)}</Text>
             <Text variant="bodyMedium">isOnboardingComplete: {String(isOnboardingComplete)}</Text>
             <Text variant="bodyMedium">selectedSetupType: {selectedSetupType ?? '(null)'}</Text>
+            <Text variant="bodyMedium">selectedWebsiteId: {selectedWebsiteId ?? '(null)'}</Text>
             <Divider style={styles.divider} />
             <Text variant="bodyMedium">
               AsyncStorage @umami-go:onboarding-complete: {onboardingKeyValue ?? '(null)'}
@@ -153,42 +143,15 @@ export default function DebugScreen() {
         </Card>
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-          <Card.Title title="Instances (SQLite)" />
+          <Card.Title title="Instance (AsyncStorage)" />
           <Card.Content style={styles.cardContent}>
-            {instances.length > 0 ? (
-              instances.map((i) => (
-                <View key={i.id} style={styles.instanceRow}>
-                  <Text variant="bodyMedium">
-                    {i.isActive ? '• (active) ' : '• '}
-                    {i.name}
-                  </Text>
-                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                    {i.setupType} — {i.host}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                (none)
-              </Text>
-            )}
-          </Card.Content>
-        </Card>
-
-        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-          <Card.Title title="Active instance secrets (SecureStore)" />
-          <Card.Content style={styles.cardContent}>
-            {activeInstance ? (
+            {instance ? (
               <>
-                <Text variant="bodyMedium">id: {activeInstance.id}</Text>
-                <Text variant="bodyMedium">name: {activeInstance.name}</Text>
-                <Text variant="bodyMedium">
-                  token: {activeSecrets?.token ? mask(activeSecrets.token, showSecrets) : '(none)'}
-                </Text>
-                <Text variant="bodyMedium">
-                  apiKey:{' '}
-                  {activeSecrets?.apiKey ? mask(activeSecrets.apiKey, showSecrets) : '(none)'}
-                </Text>
+                <Text variant="bodyMedium">name: {instance.name}</Text>
+                <Text variant="bodyMedium">host: {instance.host}</Text>
+                <Text variant="bodyMedium">setupType: {instance.setupType}</Text>
+                <Text variant="bodyMedium">username: {instance.username ?? '(null)'}</Text>
+                <Text variant="bodyMedium">umamiUserId: {instance.umamiUserId ?? '(null)'}</Text>
               </>
             ) : (
               <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -199,20 +162,18 @@ export default function DebugScreen() {
         </Card>
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-          <Card.Title title="Stored credentials (SecureStore)" />
+          <Card.Title title="Secrets (SecureStore)" />
           <Card.Content style={styles.cardContent}>
-            {savedCredentials ? (
+            {instance ? (
               <>
-                <Text variant="bodyMedium">host: {savedCredentials.host}</Text>
-                <Text variant="bodyMedium">username: {savedCredentials.username}</Text>
                 <Text variant="bodyMedium">
-                  password: {mask(savedCredentials.password, showSecrets)}
+                  token: {secrets?.token ? mask(secrets.token, showSecrets) : '(none)'}
                 </Text>
-                <Text variant="bodyMedium">setupType: {savedCredentials.setupType}</Text>
-                <Text variant="bodyMedium">userId: {savedCredentials.userId ?? '(none)'}</Text>
                 <Text variant="bodyMedium">
-                  token:{' '}
-                  {savedCredentials.token ? mask(savedCredentials.token, showSecrets) : '(none)'}
+                  apiKey: {secrets?.apiKey ? mask(secrets.apiKey, showSecrets) : '(none)'}
+                </Text>
+                <Text variant="bodyMedium">
+                  password: {secrets?.password ? mask(secrets.password, showSecrets) : '(none)'}
                 </Text>
               </>
             ) : (

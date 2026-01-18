@@ -1,14 +1,17 @@
-import {
-  type InstanceSecrets,
-  getActiveInstance,
-  getInstanceSecrets,
-  listInstances,
-} from '@/lib/storage/instances';
-import { clearAllInstances } from '@/lib/storage/instances';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
 export type SetupType = 'self-hosted' | 'cloud';
+
+export interface InstanceSecrets {
+  token?: string;
+  apiKey?: string;
+  /**
+   * Self-hosted only.
+   * Stored in SecureStore so we can re-login when the JWT expires/revokes.
+   */
+  password?: string;
+}
 
 export interface SingleInstanceRecord {
   name: string;
@@ -26,8 +29,6 @@ const SINGLE_INSTANCE_KEY = '@umami-go:single-instance';
 const TOKEN_KEY = 'umami_go_single_token';
 const API_KEY_KEY = 'umami_go_single_api_key';
 const PASSWORD_KEY = 'umami_go_single_password';
-
-let didMigrateLegacy = false;
 
 export async function getInstance(): Promise<SingleInstanceRecord | null> {
   const raw = await AsyncStorage.getItem(SINGLE_INSTANCE_KEY);
@@ -105,37 +106,4 @@ export async function clearSecrets(): Promise<void> {
     SecureStore.deleteItemAsync(API_KEY_KEY),
     SecureStore.deleteItemAsync(PASSWORD_KEY),
   ]);
-}
-
-/**
- * One-time migration for existing installs that used multi-instance storage.
- * Picks the active instance (fallback: first by list order), copies it into the
- * single-instance store, then clears legacy instances + secrets.
- */
-export async function migrateLegacyInstancesToSingleIfNeeded(): Promise<void> {
-  if (didMigrateLegacy) return;
-  didMigrateLegacy = true;
-
-  const existing = await getInstance();
-  if (existing) return;
-
-  const active = await getActiveInstance();
-  const legacy = active ?? (await listInstances())[0] ?? null;
-  if (!legacy) return;
-
-  const secrets = await getInstanceSecrets(legacy.id);
-  const now = Date.now();
-
-  await setInstance({
-    name: legacy.name,
-    host: legacy.host,
-    username: legacy.username,
-    umamiUserId: legacy.umamiUserId,
-    setupType: legacy.setupType,
-    createdAt: legacy.createdAt ?? now,
-  });
-  await setSecrets(secrets);
-
-  // After copying, clear legacy storage so the app doesn't “remember” multiple instances.
-  await clearAllInstances();
 }
