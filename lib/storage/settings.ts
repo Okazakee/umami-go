@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type DefaultTimeRange = '24h' | '7d' | '30d' | '90d';
+export type DefaultTimeRange = '24h' | '7d' | '30d' | '90d' | 'all' | 'custom';
 export type RefreshIntervalSeconds = 0 | 30 | 60 | 300;
 
 export type ThemePresetId = 'amethyst' | 'ocean' | 'emerald' | 'sunset' | 'rose' | 'mono';
@@ -8,6 +8,14 @@ export type ColorSchemePreference = 'dark' | 'light';
 
 export type AppSettings = {
   defaultTimeRange: DefaultTimeRange;
+  /**
+   * Used only when defaultTimeRange === 'custom'
+   */
+  customRangeStartAt: number | null;
+  /**
+   * Used only when defaultTimeRange === 'custom'
+   */
+  customRangeEndAt: number | null;
   refreshIntervalSeconds: RefreshIntervalSeconds;
   wifiOnly: boolean;
   backgroundRefresh: boolean;
@@ -20,6 +28,8 @@ const SETTINGS_KEY = '@umami-go:settings';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   defaultTimeRange: '7d',
+  customRangeStartAt: null,
+  customRangeEndAt: null,
   refreshIntervalSeconds: 300,
   wifiOnly: false,
   backgroundRefresh: false,
@@ -58,9 +68,15 @@ export async function getAppSettings(): Promise<AppSettings> {
                 ? 'rose'
                 : undefined;
 
+    const allowedRanges = new Set<DefaultTimeRange>(['24h', '7d', '30d', '90d', 'all', 'custom']);
+    const defaultTimeRange = allowedRanges.has(parsed.defaultTimeRange as DefaultTimeRange)
+      ? (parsed.defaultTimeRange as DefaultTimeRange)
+      : DEFAULT_SETTINGS.defaultTimeRange;
+
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      defaultTimeRange,
       themePreset: parsed.themePreset ?? legacyMapped ?? DEFAULT_SETTINGS.themePreset,
     };
   } catch {

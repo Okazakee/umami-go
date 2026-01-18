@@ -6,7 +6,6 @@ import { rgbaFromHex } from '@/lib/color';
 import { invalidateSession } from '@/lib/session/session';
 import {
   type ColorSchemePreference,
-  type DefaultTimeRange,
   type RefreshIntervalSeconds,
   type ThemePresetId,
   getAppSettings,
@@ -41,19 +40,6 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-function labelForRange(r: DefaultTimeRange): string {
-  switch (r) {
-    case '24h':
-      return 'Last 24 hours';
-    case '7d':
-      return 'Last 7 days';
-    case '30d':
-      return 'Last 30 days';
-    case '90d':
-      return 'Last 90 days';
-  }
-}
-
 function labelForInterval(s: RefreshIntervalSeconds): string {
   switch (s) {
     case 0:
@@ -82,7 +68,6 @@ export default function SettingsScreen() {
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [instance, setInstance] = React.useState<SingleInstanceRecord | null>(null);
-  const [defaultTimeRange, setDefaultTimeRange] = React.useState<DefaultTimeRange>('7d');
   const [refreshIntervalSeconds, setRefreshIntervalSeconds] =
     React.useState<RefreshIntervalSeconds>(300);
   const [wifiOnly, setWifiOnly] = React.useState(false);
@@ -93,7 +78,6 @@ export default function SettingsScreen() {
 
   const [snack, setSnack] = React.useState<string | null>(null);
 
-  const [rangeDialogOpen, setRangeDialogOpen] = React.useState(false);
   const [refreshDialogOpen, setRefreshDialogOpen] = React.useState(false);
   const [themeDialogOpen, setThemeDialogOpen] = React.useState(false);
   const [confirmClearCacheOpen, setConfirmClearCacheOpen] = React.useState(false);
@@ -122,7 +106,6 @@ export default function SettingsScreen() {
       const [s, inst] = await Promise.all([getAppSettings(), getStoredInstance()]);
       if (!mounted) return;
       setInstance(inst);
-      setDefaultTimeRange(s.defaultTimeRange);
       setRefreshIntervalSeconds(s.refreshIntervalSeconds);
       setWifiOnly(s.wifiOnly);
       setBackgroundRefresh(s.backgroundRefresh);
@@ -138,7 +121,6 @@ export default function SettingsScreen() {
 
   const updateSettings = React.useCallback(
     async (patch: {
-      defaultTimeRange?: DefaultTimeRange;
       refreshIntervalSeconds?: RefreshIntervalSeconds;
       wifiOnly?: boolean;
       backgroundRefresh?: boolean;
@@ -147,7 +129,6 @@ export default function SettingsScreen() {
       themePreset?: ThemePresetId;
     }) => {
       const next = await patchAppSettings(patch);
-      setDefaultTimeRange(next.defaultTimeRange);
       setRefreshIntervalSeconds(next.refreshIntervalSeconds);
       setWifiOnly(next.wifiOnly);
       setBackgroundRefresh(next.backgroundRefresh);
@@ -514,12 +495,6 @@ export default function SettingsScreen() {
           <Card.Title title="Preferences" />
           <Card.Content style={styles.cardContent}>
             <SettingsRow
-              title="Default time range"
-              value={labelForRange(defaultTimeRange)}
-              onPress={() => setRangeDialogOpen(true)}
-              disabled={isLoading}
-            />
-            <SettingsRow
               title="Refresh interval"
               value={labelForInterval(refreshIntervalSeconds)}
               onPress={() => setRefreshDialogOpen(true)}
@@ -803,29 +778,6 @@ export default function SettingsScreen() {
               Save
             </Button>
           </Dialog.Actions>
-        </Dialog>
-
-        <Dialog
-          visible={rangeDialogOpen}
-          onDismiss={() => setRangeDialogOpen(false)}
-          style={dialogStyle}
-        >
-          <Dialog.Title>Default time range</Dialog.Title>
-          <Dialog.Content>
-            <RadioButton.Group
-              value={defaultTimeRange}
-              onValueChange={(v) => {
-                const next = v as DefaultTimeRange;
-                setRangeDialogOpen(false);
-                updateSettings({ defaultTimeRange: next });
-              }}
-            >
-              <RadioButton.Item label={labelForRange('24h')} value="24h" />
-              <RadioButton.Item label={labelForRange('7d')} value="7d" />
-              <RadioButton.Item label={labelForRange('30d')} value="30d" />
-              <RadioButton.Item label={labelForRange('90d')} value="90d" />
-            </RadioButton.Group>
-          </Dialog.Content>
         </Dialog>
 
         <Dialog

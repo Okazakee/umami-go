@@ -21,13 +21,22 @@ import {
   type AppSettings,
   DEFAULT_SETTINGS,
   getAppSettings,
+  patchAppSettings,
   subscribeAppSettings,
 } from '@/lib/storage/settings';
 import type { AppTheme } from '@/lib/theme';
 import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Icon, Text, useTheme } from 'react-native-paper';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { Button, Card, Dialog, Icon, Portal, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function OverviewScreen() {
@@ -40,6 +49,11 @@ export default function OverviewScreen() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<unknown | null>(null);
   const [settings, setSettings] = React.useState<AppSettings>(DEFAULT_SETTINGS);
+  const dialogStyle = React.useMemo(() => ({ borderRadius: 12 }), []);
+  const [customRangeDialogOpen, setCustomRangeDialogOpen] = React.useState(false);
+  const [customStart, setCustomStart] = React.useState('');
+  const [customEnd, setCustomEnd] = React.useState('');
+  const [customRangeError, setCustomRangeError] = React.useState<string | null>(null);
   const [data, setData] = React.useState<{
     stats: WebsiteStats;
     pages: MetricPoint[];
@@ -50,6 +64,8 @@ export default function OverviewScreen() {
   } | null>(null);
 
   const isReady = !!selectedWebsiteId && !!data;
+  const breathe = React.useRef(new Animated.Value(0)).current;
+  const breatheAnimRef = React.useRef<Animated.CompositeAnimation | null>(null);
   const selectedWebsiteIdRef = React.useRef<string | null>(null);
   const dataRef = React.useRef<typeof data>(null);
 
@@ -62,6 +78,39 @@ export default function OverviewScreen() {
   }, [data]);
 
   React.useEffect(() => {
+    // "Breathing" realtime dot when realtime mode is enabled.
+    if (!isRealtimeMode) {
+      breatheAnimRef.current?.stop();
+      breatheAnimRef.current = null;
+      breathe.setValue(0);
+      return;
+    }
+
+    breathe.setValue(0);
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathe, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(breathe, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    breatheAnimRef.current = anim;
+    anim.start();
+    return () => {
+      anim.stop();
+    };
+  }, [breathe, isRealtimeMode]);
+
+  React.useEffect(() => {
     let mounted = true;
     getAppSettings().then((s) => {
       if (mounted) setSettings(s);
@@ -71,6 +120,97 @@ export default function OverviewScreen() {
       mounted = false;
       unsubscribe();
     };
+  }, []);
+
+  React.useEffect(() => {
+    if (settings.customRangeStartAt) {
+      const d = new Date(settings.customRangeStartAt);
+      setCustomStart(d.toISOString().slice(0, 10));
+    }
+    if (settings.customRangeEndAt) {
+      const d = new Date(settings.customRangeEndAt);
+      setCustomEnd(d.toISOString().slice(0, 10));
+    }
+  }, [settings.customRangeEndAt, settings.customRangeStartAt]);
+
+  const labelForRange = React.useCallback((r: AppSettings['defaultTimeRange']): string => {
+    switch (r) {
+      case '24h':
+        return '24h';
+      case '7d':
+        return '7d';
+      case '30d':
+        return '30d';
+      case '90d':
+        return '90d';
+      case 'all':
+        return 'All';
+      case 'custom':
+        return 'Custom';
+    }
+  }, []);
+
+  const parseDateYYYYMMDD = React.useCallback((value: string): number | null => {
+    const trimmed = value.trim();
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+    if (!m) return null;
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+    const date = new Date(y, mo - 1, d, 0, 0, 0, 0);
+    if (Number.isNaN(date.getTime())) return null;
+    if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
+    return date.getTime();
+  }, []);
+
+  const saveCustomRange = React.useCallback(async () => {
+    setCustomRangeError(null);
+    const startAt = parseDateYYYYMMDD(customStart);
+    const endAtDay = parseDateYYYYMMDD(customEnd);
+    if (!startAt || !endAtDay) {
+      setCustomRangeError('Use YYYY-MM-DD for both dates.');
+      return;
+    }
+    const endAt = endAtDay + 24 * 60 * 60 * 1000 - 1;
+    if (startAt > endAt) {
+      setCustomRangeError('Start date must be before end date.');
+      return;
+    }
+    await patchAppSettings({
+      defaultTimeRange: 'custom',
+      customRangeStartAt: startAt,
+      customRangeEndAt: endAt,
+    });
+    setCustomRangeDialogOpen(false);
+    setSnack('Custom range saved.');
+  }, [customEnd, customStart, parseDateYYYYMMDD]);
+
+  const realtimeDotStyle = React.useMemo(() => {
+    if (!isRealtimeMode) return undefined;
+    return {
+      transform: [
+        {
+          scale: breathe.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 1.35],
+          }),
+        },
+      ],
+      opacity: breathe.interpolate({
+        inputRange: [0, 1],
+        outputRange: [1, 0.55],
+      }),
+    } as const;
+  }, [breathe, isRealtimeMode]);
+
+  const setRange = React.useCallback(async (next: AppSettings['defaultTimeRange']) => {
+    if (next === 'custom') {
+      setCustomRangeError(null);
+      setCustomRangeDialogOpen(true);
+      return;
+    }
+    await patchAppSettings({ defaultTimeRange: next });
   }, []);
 
   const realtimeViewsColor = React.useMemo(
@@ -167,6 +307,11 @@ export default function OverviewScreen() {
     return trimmed.slice(0, 2).toUpperCase();
   }, []);
 
+  const rangeOptions = React.useMemo(
+    () => ['24h', '7d', '30d', '90d', 'all', 'custom'] as const,
+    []
+  );
+
   const refreshIntervalMs = React.useMemo(() => {
     // 0 means "manual refresh only"
     return settings.refreshIntervalSeconds === 0
@@ -197,16 +342,24 @@ export default function OverviewScreen() {
           return;
         }
 
-        const endAt = Date.now();
-        const rangeMs =
-          settings.defaultTimeRange === '24h'
-            ? 24 * 60 * 60 * 1000
-            : settings.defaultTimeRange === '7d'
-              ? 7 * 24 * 60 * 60 * 1000
-              : settings.defaultTimeRange === '30d'
-                ? 30 * 24 * 60 * 60 * 1000
-                : 90 * 24 * 60 * 60 * 1000;
-        const startAt = endAt - rangeMs;
+        const now = Date.now();
+        const endAt =
+          settings.defaultTimeRange === 'custom' && settings.customRangeEndAt
+            ? settings.customRangeEndAt
+            : now;
+        const startAt =
+          settings.defaultTimeRange === 'all'
+            ? 0
+            : settings.defaultTimeRange === 'custom' && settings.customRangeStartAt
+              ? settings.customRangeStartAt
+              : endAt -
+                (settings.defaultTimeRange === '24h'
+                  ? 24 * 60 * 60 * 1000
+                  : settings.defaultTimeRange === '7d'
+                    ? 7 * 24 * 60 * 60 * 1000
+                    : settings.defaultTimeRange === '30d'
+                      ? 30 * 24 * 60 * 60 * 1000
+                      : 90 * 24 * 60 * 60 * 1000);
 
         const [statsRes, pagesRes, sourcesRes, browsersRes, countriesRes, activeRes] =
           await Promise.all([
@@ -256,7 +409,13 @@ export default function OverviewScreen() {
         setIsLoading(false);
       }
     },
-    [refreshIntervalMs, settings.defaultTimeRange, timezone]
+    [
+      refreshIntervalMs,
+      settings.customRangeEndAt,
+      settings.customRangeStartAt,
+      settings.defaultTimeRange,
+      timezone,
+    ]
   );
 
   useFocusEffect(
@@ -264,6 +423,63 @@ export default function OverviewScreen() {
       load('initial');
     }, [load])
   );
+
+  // When the user changes the time-range pills (or custom dates), refresh immediately.
+  const rangeKey = `${settings.defaultTimeRange}:${settings.customRangeStartAt ?? ''}:${settings.customRangeEndAt ?? ''}`;
+  const lastRangeKeyRef = React.useRef<string>(rangeKey);
+  React.useEffect(() => {
+    if (lastRangeKeyRef.current === rangeKey) return;
+    lastRangeKeyRef.current = rangeKey;
+    if (!isRealtimeMode) {
+      load('pull');
+    }
+  }, [isRealtimeMode, load, rangeKey]);
+
+  const visitsCount = toNumber(data?.stats.visits) ?? null;
+  const bouncesValue = toNumber(data?.stats.bounces) ?? null;
+  const totalTimeRaw = toNumber(data?.stats.totaltime) ?? null;
+  const pageviewsCount = toNumber(data?.stats.pageviews) ?? null;
+
+  const bounceRatePct =
+    bouncesValue === null
+      ? null
+      : bouncesValue <= 1
+        ? bouncesValue * 100
+        : visitsCount && visitsCount > 0
+          ? (bouncesValue / visitsCount) * 100
+          : null;
+
+  const avgVisitDurationSeconds =
+    totalTimeRaw === null || visitsCount === null || visitsCount <= 0
+      ? null
+      : (() => {
+          // Umami "Avg. time" is derived from totaltime / visits.
+          // Some installs report totaltime in seconds, others in milliseconds.
+          // Heuristic: if the per-visit average looks like "milliseconds interpreted as seconds",
+          // convert to seconds.
+          const avgRaw = totalTimeRaw / visitsCount;
+          if (avgRaw > 3600 && avgRaw / 1000 < 3600) return avgRaw / 1000;
+          return avgRaw;
+        })();
+
+  const chartTitle = React.useMemo(() => {
+    const r = settings.defaultTimeRange;
+    if (r === '24h') return 'Last 24 hours';
+    if (r === '7d') return 'Last 7 days';
+    if (r === '30d') return 'Last 30 days';
+    if (r === '90d') return 'Last 90 days';
+    if (r === 'all') return 'All time';
+    if (r === 'custom') {
+      if (customStart && customEnd) return `Custom (${customStart} → ${customEnd})`;
+      return 'Custom range';
+    }
+    return 'Last period';
+  }, [customEnd, customStart, settings.defaultTimeRange]);
+
+  const chartSubtitle = React.useMemo(() => {
+    if (settings.defaultTimeRange === '24h') return 'Views per hour';
+    return 'Views over time';
+  }, [settings.defaultTimeRange]);
 
   return (
     <SafeAreaView
@@ -295,7 +511,7 @@ export default function OverviewScreen() {
               },
             ]}
           >
-            <View
+            <Animated.View
               style={[
                 styles.realtimeDot,
                 {
@@ -303,6 +519,7 @@ export default function OverviewScreen() {
                     ? theme.colors.realtimeOn
                     : theme.colors.realtimeOff,
                 },
+                realtimeDotStyle,
               ]}
             />
             <Text
@@ -312,6 +529,41 @@ export default function OverviewScreen() {
               REALTIME
             </Text>
           </Pressable>
+
+          {!isRealtimeMode ? (
+            <View style={styles.rangeRow}>
+              {rangeOptions.map((r) => {
+                const isSelected = settings.defaultTimeRange === r;
+                return (
+                  <Pressable
+                    key={r}
+                    onPress={() => setRange(r)}
+                    style={[
+                      styles.rangePill,
+                      {
+                        backgroundColor: isSelected
+                          ? rgbaFromHex(theme.colors.primary, 0.14)
+                          : theme.colors.surfaceVariant,
+                        borderColor: isSelected
+                          ? rgbaFromHex(theme.colors.primary, 0.35)
+                          : rgbaFromHex(theme.colors.onSurfaceVariant, 0.22),
+                      },
+                    ]}
+                  >
+                    <Text
+                      variant="labelMedium"
+                      style={{
+                        fontWeight: '700',
+                        color: isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant,
+                      }}
+                    >
+                      {labelForRange(r)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
 
           {isRealtimeMode ? (
             <>
@@ -514,20 +766,16 @@ export default function OverviewScreen() {
             <>
               <View style={styles.grid}>
                 <KpiCard
-                  title="Views"
+                  title="Visits"
                   icon="eye-outline"
-                  value={
-                    toNumber(data?.stats.pageviews) === null
-                      ? '—'
-                      : formatCompact(toNumber(data?.stats.pageviews) as number)
-                  }
+                  value={visitsCount === null ? '—' : formatCompact(visitsCount)}
                   delta={
-                    deltaPct(data?.stats.pageviews) && deltaPct(data?.stats.pageviews) !== 0
-                      ? `${Math.abs(deltaPct(data?.stats.pageviews) ?? 0).toFixed(0)}%`
+                    deltaPct(data?.stats.visits) && deltaPct(data?.stats.visits) !== 0
+                      ? `${Math.abs(deltaPct(data?.stats.visits) ?? 0).toFixed(0)}%`
                       : undefined
                   }
                   deltaTone={
-                    (deltaPct(data?.stats.pageviews) ?? 0) > 0
+                    (deltaPct(data?.stats.visits) ?? 0) > 0
                       ? ('up' as DeltaTone)
                       : ('down' as DeltaTone)
                   }
@@ -554,39 +802,13 @@ export default function OverviewScreen() {
                 <KpiCard
                   title="Bounce Rate"
                   icon="exit-to-app"
-                  value={
-                    toNumber(data?.stats.bounces) !== null
-                      ? formatPercent(toNumber(data?.stats.bounces) as number)
-                      : '—'
-                  }
-                  delta={
-                    deltaPct(data?.stats.bounces) && deltaPct(data?.stats.bounces) !== 0
-                      ? `${Math.abs(deltaPct(data?.stats.bounces) ?? 0).toFixed(0)}%`
-                      : undefined
-                  }
-                  deltaTone={
-                    (deltaPct(data?.stats.bounces) ?? 0) > 0
-                      ? ('up' as DeltaTone)
-                      : ('down' as DeltaTone)
-                  }
+                  value={bounceRatePct === null ? '—' : `${Math.round(bounceRatePct)}%`}
                 />
                 <KpiCard
                   title="Avg. Time"
                   icon="clock-outline"
                   value={
-                    toNumber(data?.stats.totaltime) !== null
-                      ? formatDuration(toNumber(data?.stats.totaltime) as number)
-                      : '—'
-                  }
-                  delta={
-                    deltaPct(data?.stats.totaltime) && deltaPct(data?.stats.totaltime) !== 0
-                      ? `${Math.abs(deltaPct(data?.stats.totaltime) ?? 0).toFixed(0)}%`
-                      : undefined
-                  }
-                  deltaTone={
-                    (deltaPct(data?.stats.totaltime) ?? 0) > 0
-                      ? ('up' as DeltaTone)
-                      : ('down' as DeltaTone)
+                    avgVisitDurationSeconds === null ? '—' : formatDuration(avgVisitDurationSeconds)
                   }
                 />
               </View>
@@ -598,15 +820,13 @@ export default function OverviewScreen() {
                 <Card.Content style={styles.bigCardContent}>
                   <View style={styles.bigCardHeader}>
                     <View style={styles.bigCardHeaderLeft}>
-                      <Text variant="titleLarge">Last 24 Hours</Text>
+                      <Text variant="titleLarge">{chartTitle}</Text>
                       <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                        Unique visitors per hour
+                        {chartSubtitle}
                       </Text>
                     </View>
                     <Text variant="headlineSmall" style={{ color: theme.colors.onSurface }}>
-                      {toNumber(data?.stats.visitors) === null
-                        ? '—'
-                        : formatCompact(toNumber(data?.stats.visitors) as number)}
+                      {pageviewsCount === null ? '—' : formatCompact(pageviewsCount)}
                     </Text>
                   </View>
 
@@ -904,6 +1124,53 @@ export default function OverviewScreen() {
           )
         ) : null}
 
+        <Portal>
+          <Dialog
+            visible={customRangeDialogOpen}
+            onDismiss={() => setCustomRangeDialogOpen(false)}
+            style={dialogStyle}
+          >
+            <Dialog.Title>Custom range</Dialog.Title>
+            <Dialog.Content>
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}
+              >
+                Enter dates as YYYY-MM-DD.
+              </Text>
+              <View style={{ gap: 12 }}>
+                <TextInput
+                  mode="outlined"
+                  label="Start date"
+                  placeholder="2025-01-01"
+                  value={customStart}
+                  onChangeText={setCustomStart}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TextInput
+                  mode="outlined"
+                  label="End date"
+                  placeholder="2025-01-18"
+                  value={customEnd}
+                  onChangeText={setCustomEnd}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+              {customRangeError ? (
+                <Text variant="bodySmall" style={{ color: theme.colors.error, marginTop: 10 }}>
+                  {customRangeError}
+                </Text>
+              ) : null}
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button onPress={() => setCustomRangeDialogOpen(false)}>Cancel</Button>
+              <Button onPress={saveCustomRange}>Save</Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+
         {snack ? (
           <View style={styles.snackWrap}>
             <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -925,9 +1192,21 @@ const styles = StyleSheet.create({
   },
   topWrap: {
     alignItems: 'center',
-    gap: 10,
+    gap: 16,
     paddingTop: 6,
     paddingBottom: 4,
+  },
+  rangeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  rangePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   realtimePill: {
     flexDirection: 'row',
