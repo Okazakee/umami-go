@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, FAB, Text, useTheme } from 'react-native-paper';
+import { Card, FAB, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   type InstanceRecord,
@@ -64,14 +64,6 @@ export default function HomeScreen() {
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
             Add and switch between self-hosted and cloud instances.
           </Text>
-        </View>
-
-        <View style={styles.actions}>
-          {__DEV__ ? (
-            <Button mode="outlined" onPress={() => router.push('/(app)/debug')}>
-              Debug
-            </Button>
-          ) : null}
         </View>
 
         {isLoading ? (
@@ -137,11 +129,6 @@ const styles = StyleSheet.create({
   header: {
     gap: 4,
     paddingVertical: 4,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-    flexWrap: 'wrap',
   },
   instanceCard: {
     overflow: 'hidden',

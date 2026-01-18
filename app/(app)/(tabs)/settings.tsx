@@ -9,7 +9,7 @@ import {
 } from '@/lib/storage/settings';
 import { router } from 'expo-router';
 import * as React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 import {
   Button,
   Card,
@@ -175,14 +175,37 @@ export default function SettingsScreen() {
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Troubleshooting" />
           <Card.Content style={styles.cardContent}>
-            <Button mode="outlined" onPress={() => setConfirmClearOpen(true)}>
-              Clear instances + secrets
+            <Button mode="outlined" onPress={() => router.push('/(onboarding)/choice')}>
+              Add / reconnect instance
             </Button>
-            <Button mode="contained" onPress={() => setConfirmResetOpen(true)}>
-              Reset onboarding + instances
+            <Button mode="outlined" onPress={() => Linking.openURL('https://umami.is/docs')}>
+              Open Umami docs
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={() => Linking.openURL('https://umami.is/docs/cloud/api-key')}
+            >
+              Umami Cloud API key help
             </Button>
           </Card.Content>
         </Card>
+
+        {__DEV__ ? (
+          <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <Card.Title title="Debug" />
+            <Card.Content style={styles.cardContent}>
+              <Button mode="outlined" onPress={() => router.push('/(app)/debug')}>
+                Open debug screen
+              </Button>
+              <Button mode="outlined" onPress={() => setConfirmClearOpen(true)}>
+                Clear instances + secrets
+              </Button>
+              <Button mode="contained" onPress={() => setConfirmResetOpen(true)}>
+                Reset onboarding + instances
+              </Button>
+            </Card.Content>
+          </Card>
+        ) : null}
       </ScrollView>
 
       <Portal>
@@ -232,39 +255,43 @@ export default function SettingsScreen() {
           </Dialog.Content>
         </Dialog>
 
-        <Dialog
-          visible={confirmClearOpen}
-          onDismiss={() => setConfirmClearOpen(false)}
-          style={dialogStyle}
-        >
-          <Dialog.Title>Clear instances?</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-              This removes all saved instances and their secrets from this device.
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setConfirmClearOpen(false)}>Cancel</Button>
-            <Button onPress={handleClearInstances}>Clear</Button>
-          </Dialog.Actions>
-        </Dialog>
+        {__DEV__ ? (
+          <>
+            <Dialog
+              visible={confirmClearOpen}
+              onDismiss={() => setConfirmClearOpen(false)}
+              style={dialogStyle}
+            >
+              <Dialog.Title>Clear instances?</Dialog.Title>
+              <Dialog.Content>
+                <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                  This removes all saved instances and their secrets from this device.
+                </Text>
+              </Dialog.Content>
+              <Dialog.Actions>
+                <Button onPress={() => setConfirmClearOpen(false)}>Cancel</Button>
+                <Button onPress={handleClearInstances}>Clear</Button>
+              </Dialog.Actions>
+            </Dialog>
 
-        <Dialog
-          visible={confirmResetOpen}
-          onDismiss={() => setConfirmResetOpen(false)}
-          style={dialogStyle}
-        >
-          <Dialog.Title>Reset the app?</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-              This clears instances and restarts onboarding.
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setConfirmResetOpen(false)}>Cancel</Button>
-            <Button onPress={handleResetApp}>Reset</Button>
-          </Dialog.Actions>
-        </Dialog>
+            <Dialog
+              visible={confirmResetOpen}
+              onDismiss={() => setConfirmResetOpen(false)}
+              style={dialogStyle}
+            >
+              <Dialog.Title>Reset the app?</Dialog.Title>
+              <Dialog.Content>
+                <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                  This clears instances and restarts onboarding.
+                </Text>
+              </Dialog.Content>
+              <Dialog.Actions>
+                <Button onPress={() => setConfirmResetOpen(false)}>Cancel</Button>
+                <Button onPress={handleResetApp}>Reset</Button>
+              </Dialog.Actions>
+            </Dialog>
+          </>
+        ) : null}
       </Portal>
     </SafeAreaView>
   );

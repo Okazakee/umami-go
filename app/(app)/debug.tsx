@@ -1,20 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { router, useRootNavigationState, useSegments } from 'expo-router';
+import { useRootNavigationState, useSegments } from 'expo-router';
 import * as React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Divider, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboarding } from '../../contexts/OnboardingContext';
-import {
-  type SavedCredentials,
-  clearCredentials,
-  getCredentials,
-} from '../../lib/storage/credentials';
+import { type SavedCredentials, getCredentials } from '../../lib/storage/credentials';
 import {
   type InstanceRecord,
   type InstanceSecrets,
-  clearAllInstances,
   getActiveInstance,
   getInstanceSecrets,
   listInstances,
@@ -42,7 +37,7 @@ function mask(value: string, reveal: boolean): string {
 
 export default function DebugScreen() {
   const theme = useTheme();
-  const { isLoading, isOnboardingComplete, selectedSetupType, resetOnboarding } = useOnboarding();
+  const { isLoading, isOnboardingComplete, selectedSetupType } = useOnboarding();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
 
@@ -94,32 +89,6 @@ export default function DebugScreen() {
   React.useEffect(() => {
     refresh();
   }, [refresh]);
-
-  const handleClearSensitive = async () => {
-    try {
-      setLastError(null);
-      await Promise.all([clearAllInstances(), clearCredentials()]);
-      await refresh();
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
-      setLastError(message);
-    }
-  };
-
-  const handleResetAll = async () => {
-    try {
-      setLastError(null);
-      await Promise.all([clearAllInstances(), clearCredentials()]);
-      await resetOnboarding();
-      await refresh();
-      router.replace('/(onboarding)/welcome');
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
-      setLastError(message);
-    }
-  };
 
   return (
     <SafeAreaView
@@ -289,15 +258,6 @@ export default function DebugScreen() {
             )}
           </Card.Content>
         </Card>
-
-        <View style={styles.footerActions}>
-          <Button mode="outlined" onPress={handleClearSensitive}>
-            Clear instances + secrets
-          </Button>
-          <Button mode="contained" onPress={handleResetAll}>
-            Reset onboarding + instances
-          </Button>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -331,9 +291,5 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginVertical: 8,
-  },
-  footerActions: {
-    marginTop: 8,
-    gap: 12,
   },
 });
