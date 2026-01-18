@@ -1,3 +1,4 @@
+import { LineChart } from '@/components/LineChart';
 import { OverviewMap } from '@/components/OverviewMap';
 import { TrafficDotHeatmap } from '@/components/TrafficDotHeatmap';
 import {
@@ -11,11 +12,20 @@ import { SkeletonBlock } from '@/components/skeleton';
 import { EmptyState, ErrorState, mapRequestErrorToUi } from '@/components/states';
 import {
   type MetricPoint,
+  type TimeUnit,
   type WebsiteStats,
   getWebsiteActiveCached,
   getWebsiteMetricsCached,
+  getWebsitePageviewsCached,
   getWebsiteStatsCached,
 } from '@/lib/api/umamiData';
+import {
+  type RangeType,
+  aggregateDataIntoBuckets,
+  calculateIntervals,
+  formatLabels,
+  getBucketSize,
+} from '@/lib/chart/timeSeriesBucketing';
 import { rgbaFromHex } from '@/lib/color';
 import { ensureSelectedWebsiteId } from '@/lib/ensureWebsiteSelection';
 import {
@@ -127,6 +137,9 @@ export default function OverviewScreen() {
     rangeKey: string;
     websiteId: string;
     stats: WebsiteStats;
+    seriesUnit: TimeUnit;
+    seriesPageviews: MetricPoint[];
+    seriesAxisTicks: { key: string; label: string }[];
     pages: MetricPoint[];
     sources: MetricPoint[];
     browsers: MetricPoint[];
@@ -319,10 +332,16 @@ export default function OverviewScreen() {
 
   const timezone = React.useMemo(() => {
     try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (typeof tz === 'string' && tz.length > 0) return tz;
     } catch {
-      return undefined;
+      // ignore
     }
+    // Fallback for environments without Intl timeZone support (avoids UTC bucket shifts like 05:00).
+    const offsetMin = new Date().getTimezoneOffset(); // minutes behind UTC
+    const offsetHours = Math.round(Math.abs(offsetMin) / 60);
+    const sign = offsetMin <= 0 ? '-' : '+'; // Etc/GMT has inverted sign
+    return `Etc/GMT${sign}${offsetHours}`;
   }, []);
 
   const toNumber = React.useCallback((value: unknown): number | null => {
@@ -426,31 +445,51 @@ export default function OverviewScreen() {
 
         const effectiveRangeKey = `${settings.defaultTimeRange}:${settings.customRangeStartAt ?? ''}:${settings.customRangeEndAt ?? ''}`;
 
-        // Align "now" to the nearest minute so cache keys stay stable and we don't
-        // thrash the local cache with ever-changing endAt timestamps.
+        const rangeType = settings.defaultTimeRange as RangeType;
         const now = Date.now();
-        const alignedNow = Math.floor(now / 60_000) * 60_000;
-        const endAt =
-          settings.defaultTimeRange === 'custom' && settings.customRangeEndAt
-            ? settings.customRangeEndAt
-            : alignedNow;
-        const startAt =
-          settings.defaultTimeRange === 'all'
-            ? 0
-            : settings.defaultTimeRange === 'custom' && settings.customRangeStartAt
-              ? settings.customRangeStartAt
-              : endAt -
-                (settings.defaultTimeRange === '24h'
-                  ? 24 * 60 * 60 * 1000
-                  : settings.defaultTimeRange === '7d'
-                    ? 7 * 24 * 60 * 60 * 1000
-                    : settings.defaultTimeRange === '30d'
-                      ? 30 * 24 * 60 * 60 * 1000
-                      : 90 * 24 * 60 * 60 * 1000);
+        const customStartAt = settings.customRangeStartAt ?? null;
+        const customEndAt = settings.customRangeEndAt ?? null;
 
-        const [statsRes, pagesRes, sourcesRes, browsersRes, countriesRes, activeRes] =
+        const rawEndAt = rangeType === 'custom' && customEndAt ? customEndAt : now;
+        const rawStartAt =
+          rangeType === 'custom' && customStartAt
+            ? customStartAt
+            : rangeType === '24h'
+              ? now - 24 * 60 * 60 * 1000
+              : rangeType === '7d'
+                ? now - 7 * 24 * 60 * 60 * 1000
+                : rangeType === '30d'
+                  ? now - 30 * 24 * 60 * 60 * 1000
+                  : rangeType === '90d'
+                    ? now - 90 * 24 * 60 * 60 * 1000
+                    : 0;
+
+        const spec = getBucketSize(
+          rangeType,
+          rangeType === 'custom' ? { startMs: rawStartAt, endMs: rawEndAt } : undefined
+        );
+
+        const unit: TimeUnit =
+          spec.granularity === 'hour'
+            ? 'hour'
+            : spec.granularity === 'day'
+              ? 'day'
+              : spec.granularity === 'month'
+                ? 'month'
+                : 'year';
+
+        // Build an interval plan for this range. We use it to pick a stable,
+        // human-correct start/end for day-based presets (avoids repeated labels / skew).
+        const basePlan = calculateIntervals(rawStartAt, rawEndAt, rangeType);
+
+        const endAt = rangeType === 'custom' ? Math.min(rawEndAt, now) : basePlan.endMs;
+        const startAt =
+          rangeType === 'all' ? 0 : rangeType === 'custom' ? rawStartAt : basePlan.startMs;
+
+        const [statsRes, pageviewsRes, pagesRes, sourcesRes, browsersRes, countriesRes, activeRes] =
           await Promise.all([
             getWebsiteStatsCached(websiteId, { startAt, endAt, timezone }, ttlMs),
+            getWebsitePageviewsCached(websiteId, { startAt, endAt, unit, timezone }, ttlMs),
             getWebsiteMetricsCached(
               websiteId,
               { type: 'path', startAt, endAt, timezone, limit: 4 },
@@ -475,10 +514,46 @@ export default function OverviewScreen() {
           ]);
         if (requestId !== requestIdRef.current) return;
 
+        const rawSeries = pageviewsRes.data.pageviews ?? [];
+
+        // For "all time" we derive the effective chart start from the earliest returned point
+        // (otherwise we'd show 1970 as the start).
+        let chartStartAt = startAt;
+        if (rangeType === 'all') {
+          let minT = Number.POSITIVE_INFINITY;
+          for (const p of rawSeries) {
+            const t = Date.parse(p.x);
+            if (Number.isFinite(t) && t < minT) minT = t;
+          }
+          if (Number.isFinite(minT)) chartStartAt = minT;
+        }
+
+        const chartPlan = calculateIntervals(chartStartAt, endAt, rangeType);
+        const bucketValues = aggregateDataIntoBuckets(rawSeries, chartPlan.buckets, 'sum');
+        const seriesPageviews: MetricPoint[] = chartPlan.buckets.map((b, i) => ({
+          x: new Date(b.midMs).toISOString(),
+          y: bucketValues[i] ?? 0,
+        }));
+        const labelGranularity =
+          rangeType === 'all' || rangeType === 'custom'
+            ? getBucketSize(rangeType, { startMs: chartStartAt, endMs: endAt }).granularity
+            : spec.granularity;
+        const labels = formatLabels(chartPlan.ticks, rangeType, {
+          timeZone: timezone,
+          granularity: labelGranularity,
+        });
+        const seriesAxisTicks = labels.map((label, i) => ({
+          key: `${chartPlan.ticks[i] ?? i}:${i}`,
+          label,
+        }));
+
         setData({
           rangeKey: effectiveRangeKey,
           websiteId,
           stats: statsRes.data,
+          seriesUnit: unit,
+          seriesPageviews,
+          seriesAxisTicks,
           pages: pagesRes.data,
           sources: sourcesRes.data,
           browsers: browsersRes.data,
@@ -582,9 +657,15 @@ export default function OverviewScreen() {
   }, [customEnd, customStart, settings.defaultTimeRange]);
 
   const chartSubtitle = React.useMemo(() => {
-    if (settings.defaultTimeRange === '24h') return 'Views per hour';
+    if (settings.defaultTimeRange === '24h') return 'Views per 4h';
+    const u = data?.seriesUnit;
+    if (u === 'day') return 'Views per day';
+    if (u === 'month') return 'Views per month';
+    if (u === 'year') return 'Views per year';
     return 'Views over time';
-  }, [settings.defaultTimeRange]);
+  }, [data?.seriesUnit, settings.defaultTimeRange]);
+
+  const axisTicks = data?.seriesAxisTicks ?? [];
 
   return (
     <SafeAreaView
@@ -931,135 +1012,28 @@ export default function OverviewScreen() {
                   <View
                     style={[styles.chartArea, { backgroundColor: theme.colors.surfaceVariant }]}
                   >
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '5%',
-                          height: '20%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '14%',
-                          height: '30%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '23%',
-                          height: '55%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '32%',
-                          height: '45%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '41%',
-                          height: '35%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '50%',
-                          height: '25%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '59%',
-                          height: '40%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '68%',
-                          height: '70%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '77%',
-                          height: '22%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '86%',
-                          height: '65%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.chartBar,
-                        {
-                          left: '95%',
-                          height: '45%',
-                          backgroundColor: rgbaFromHex(theme.colors.primary, 0.55),
-                        },
-                      ]}
-                    />
+                    {(data?.seriesPageviews?.length ?? 0) >= 2 ? (
+                      <LineChart points={data?.seriesPageviews ?? []} height={180} />
+                    ) : (
+                      <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                        No data.
+                      </Text>
+                    )}
                   </View>
 
-                  <View style={styles.chartAxis}>
-                    <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                      00:00
-                    </Text>
-                    <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                      06:00
-                    </Text>
-                    <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                      12:00
-                    </Text>
-                    <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                      18:00
-                    </Text>
-                    <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                      Now
-                    </Text>
-                  </View>
+                  {axisTicks.length > 0 ? (
+                    <View style={styles.chartAxis}>
+                      {axisTicks.map((t) => (
+                        <Text
+                          key={t.key}
+                          variant="labelSmall"
+                          style={{ color: theme.colors.onSurfaceVariant }}
+                        >
+                          {t.label}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
                 </Card.Content>
               </Card>
 

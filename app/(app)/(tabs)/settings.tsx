@@ -547,32 +547,21 @@ export default function SettingsScreen() {
               <View style={styles.rowText}>
                 <Text variant="titleMedium">Wi‑Fi only</Text>
                 <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  Reduce data usage by only refreshing over Wi‑Fi.
+                  Coming soon. Network-type detection isn’t wired yet.
                 </Text>
               </View>
-              <Switch
-                value={wifiOnly}
-                onValueChange={(v) => updateSettings({ wifiOnly: v })}
-                disabled={isLoading}
-              />
+              <Switch value={wifiOnly} onValueChange={() => {}} disabled />
             </View>
             <Divider />
             <View style={styles.row}>
               <View style={styles.rowText}>
                 <Text variant="titleMedium">Background refresh</Text>
                 <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  Store your preference for background refresh.
+                  Coming soon. Background refresh isn’t implemented yet.
                 </Text>
               </View>
-              <Switch
-                value={backgroundRefresh}
-                onValueChange={(v) => updateSettings({ backgroundRefresh: v })}
-                disabled={isLoading}
-              />
+              <Switch value={backgroundRefresh} onValueChange={() => {}} disabled />
             </View>
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              Note: background refresh isn’t implemented yet.
-            </Text>
           </Card.Content>
         </Card>
 

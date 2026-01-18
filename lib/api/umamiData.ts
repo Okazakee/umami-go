@@ -34,6 +34,13 @@ export type MetricPoint = {
   y: number;
 };
 
+export type TimeUnit = 'year' | 'month' | 'day' | 'hour';
+
+export type PageviewsTimeseriesResponse = {
+  pageviews: MetricPoint[];
+  sessions?: MetricPoint[];
+};
+
 async function instanceInfo(): Promise<{ prefix: string; scope: string }> {
   const inst = await getInstance();
   if (!inst) throw new RequestError('missing_instance', 'No instance configured.');
@@ -159,6 +166,34 @@ export async function getWebsiteMetricsCached(
 
   const fresh = await sessionFetchJson<MetricPoint[]>(
     `${prefix}/websites/${websiteId}/metrics${qs}`
+  );
+  await setCached(key, fresh);
+  return { data: fresh, fromCache: false };
+}
+
+export async function getWebsitePageviewsCached(
+  websiteId: string,
+  input: { startAt: number; endAt: number; unit: TimeUnit; timezone?: string },
+  ttlMs = 60 * 1000
+): Promise<{ data: PageviewsTimeseriesResponse; fromCache: boolean }> {
+  const { prefix, scope } = await instanceInfo();
+  const qs = toQuery({
+    startAt: input.startAt,
+    endAt: input.endAt,
+    unit: input.unit,
+    timezone: input.timezone,
+  });
+  const key = buildCacheKey(
+    `${scope}:pageviews:${prefix}:${websiteId}:${input.startAt}:${input.endAt}:${input.unit}:${input.timezone ?? ''}`
+  );
+
+  const cached = await getCached<PageviewsTimeseriesResponse>(key);
+  if (cached && isFresh(cached.storedAt, ttlMs)) {
+    return { data: cached.data, fromCache: true };
+  }
+
+  const fresh = await sessionFetchJson<PageviewsTimeseriesResponse>(
+    `${prefix}/websites/${websiteId}/pageviews${qs}`
   );
   await setCached(key, fresh);
   return { data: fresh, fromCache: false };
