@@ -5,18 +5,26 @@ import { Button, Icon, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { UmamiApiClient, type UmamiApiError } from '../../lib/api/umami';
-import { type SavedCredentials, saveCredentials } from '../../lib/storage/credentials';
 import { setInstanceSecrets, upsertInstance } from '../../lib/storage/instances';
 
-function stableInstanceId(umamiUserId: string, host: string): string {
-  // Avoid collisions across different Umami hosts with same user id.
-  // Keep it SecureStore-key-safe (alphanumeric + "_").
+function hashBase36(value: string): string {
   let hash = 5381;
-  for (let i = 0; i < host.length; i++) {
-    hash = (hash * 33) ^ host.charCodeAt(i);
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 33) ^ value.charCodeAt(i);
   }
-  const suffix = (hash >>> 0).toString(36);
-  return `${umamiUserId}_${suffix}`;
+  return (hash >>> 0).toString(36);
+}
+
+function stableSelfHostedInstanceId(umamiUserId: string, host: string): string {
+  // Avoid collisions across different Umami hosts with same user id.
+  return `${umamiUserId}_${hashBase36(host)}`;
+}
+
+function normalizeCloudHost(host: string): string {
+  const trimmed = host.replace(/\/$/, '');
+  if (trimmed.includes('cloud.umami.is')) return 'https://api.umami.is';
+  if (trimmed.endsWith('/v1')) return trimmed.slice(0, -3);
+  return trimmed;
 }
 
 export default function VerifyScreen() {
@@ -26,6 +34,7 @@ export default function VerifyScreen() {
     host?: string;
     username?: string;
     password?: string;
+    apiKey?: string;
   }>();
 
   const [isVerifying, setIsVerifying] = React.useState(true);
@@ -55,45 +64,99 @@ export default function VerifyScreen() {
     if (hasVerifiedRef.current) return;
 
     const verifyConnection = async () => {
-      if (!params.host || !params.username || !params.password) {
-        setError('Missing connection credentials');
-        setIsVerifying(false);
-        return;
-      }
-
       setIsVerifying(true);
       setError(null);
 
       try {
-        const client = new UmamiApiClient(params.host);
-        const response = await client.login({
-          host: params.host,
-          username: params.username,
-          password: params.password,
-        });
+        if (selectedSetupType === 'self-hosted') {
+          if (!params.host || !params.username || !params.password) {
+            setError('Missing connection credentials');
+            setIsVerifying(false);
+            return;
+          }
 
-        // Save credentials and instance info
-        const savedCredentials: SavedCredentials = {
-          host: params.host,
-          username: params.username,
-          password: params.password,
-          setupType: 'self-hosted',
-          token: response.token,
-          userId: response.user.id,
-        };
+          const client = new UmamiApiClient(params.host);
+          const response = await client.login({
+            host: params.host,
+            username: params.username,
+            password: params.password,
+          });
 
-        await saveCredentials(savedCredentials);
-        const instanceId = stableInstanceId(response.user.id, params.host);
-        await upsertInstance({
-          id: instanceId,
-          name: `${params.host || ''} (${params.username || ''})`,
-          host: params.host || '',
-          username: params.username || null,
-          umamiUserId: response.user.id,
-          setupType: 'self-hosted',
-          makeActive: true,
-        });
-        await setInstanceSecrets(instanceId, { token: response.token });
+          const instanceId = stableSelfHostedInstanceId(response.user.id, params.host);
+          await upsertInstance({
+            id: instanceId,
+            name: `${params.host} (${params.username})`,
+            host: params.host,
+            username: params.username,
+            umamiUserId: response.user.id,
+            setupType: 'self-hosted',
+            makeActive: true,
+          });
+          await setInstanceSecrets(instanceId, { token: response.token });
+        } else if (selectedSetupType === 'cloud') {
+          if (!params.host || !params.apiKey) {
+            setError('Missing connection credentials');
+            setIsVerifying(false);
+            return;
+          }
+
+          const apiHost = normalizeCloudHost(params.host);
+          const apiKey = params.apiKey;
+
+          const response = await fetch(`${apiHost}/v1/me`, {
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+              'x-umami-api-key': apiKey,
+            },
+          });
+
+          if (!response.ok) {
+            let message = `Request failed with status ${response.status}`;
+            try {
+              const data = await response.json();
+              if (data && typeof data === 'object') {
+                const maybeMessage =
+                  'message' in data && typeof data.message === 'string'
+                    ? data.message
+                    : 'error' in data && typeof data.error === 'string'
+                      ? data.error
+                      : undefined;
+                if (maybeMessage) message = maybeMessage;
+              }
+            } catch {
+              // ignore
+            }
+            const err: UmamiApiError = { message, status: response.status };
+            throw err;
+          }
+
+          const data = (await response.json()) as unknown;
+          const user =
+            data &&
+            typeof data === 'object' &&
+            'user' in data &&
+            data.user &&
+            typeof data.user === 'object'
+              ? (data.user as { id?: string; username?: string })
+              : (data as { id?: string; username?: string });
+
+          const cloudInstanceId = `cloud_${hashBase36(`${apiHost}|${apiKey}`)}`;
+          await upsertInstance({
+            id: cloudInstanceId,
+            name: user.username ? `Umami Cloud (${user.username})` : 'Umami Cloud',
+            host: apiHost,
+            username: user.username ?? null,
+            umamiUserId: user.id ?? null,
+            setupType: 'cloud',
+            makeActive: true,
+          });
+          await setInstanceSecrets(cloudInstanceId, { apiKey });
+        } else {
+          setError('Missing setup type selection');
+          setIsVerifying(false);
+          return;
+        }
 
         // Complete onboarding and navigate to home
         await completeOnboarding();
@@ -102,8 +165,9 @@ export default function VerifyScreen() {
         const apiError = err as UmamiApiError;
         let errorMessage = 'Failed to connect to Umami instance';
 
-        if (apiError.status === 401) {
-          errorMessage = 'Invalid username or password';
+        if (apiError.status === 401 || apiError.status === 403) {
+          errorMessage =
+            selectedSetupType === 'cloud' ? 'Invalid API key' : 'Invalid username or password';
         } else if (apiError.status === 0) {
           errorMessage =
             'Unable to reach server. Please check the host URL and your internet connection.';
@@ -116,14 +180,16 @@ export default function VerifyScreen() {
       }
     };
 
-    if (selectedSetupType === 'self-hosted' && params.host && params.username && params.password) {
-      hasVerifiedRef.current = true;
-      verifyConnection();
-    } else if (!params.host || !params.username || !params.password) {
-      setError('Missing connection credentials');
-      setIsVerifying(false);
-    }
-  }, [completeOnboarding, params.host, params.password, params.username, selectedSetupType]);
+    hasVerifiedRef.current = true;
+    verifyConnection();
+  }, [
+    completeOnboarding,
+    params.apiKey,
+    params.host,
+    params.password,
+    params.username,
+    selectedSetupType,
+  ]);
 
   const handleGoBack = () => {
     router.back();
@@ -146,7 +212,7 @@ export default function VerifyScreen() {
               variant="bodyMedium"
               style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
             >
-              Please wait while we connect to your Umami instance...
+              Please wait while we verify your connection...
             </Text>
           </>
         ) : error ? (

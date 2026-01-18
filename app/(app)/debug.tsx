@@ -14,6 +14,7 @@ import {
 import {
   type InstanceRecord,
   type InstanceSecrets,
+  clearAllInstances,
   getActiveInstance,
   getInstanceSecrets,
   listInstances,
@@ -97,7 +98,7 @@ export default function DebugScreen() {
   const handleClearSensitive = async () => {
     try {
       setLastError(null);
-      await clearCredentials();
+      await Promise.all([clearAllInstances(), clearCredentials()]);
       await refresh();
     } catch (err) {
       const message =
@@ -109,7 +110,7 @@ export default function DebugScreen() {
   const handleResetAll = async () => {
     try {
       setLastError(null);
-      await clearCredentials();
+      await Promise.all([clearAllInstances(), clearCredentials()]);
       await resetOnboarding();
       await refresh();
       router.replace('/(onboarding)/welcome');
@@ -291,10 +292,10 @@ export default function DebugScreen() {
 
         <View style={styles.footerActions}>
           <Button mode="outlined" onPress={handleClearSensitive}>
-            Clear credentials
+            Clear instances + secrets
           </Button>
           <Button mode="contained" onPress={handleResetAll}>
-            Reset onboarding + credentials
+            Reset onboarding + instances
           </Button>
         </View>
       </ScrollView>

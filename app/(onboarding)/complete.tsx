@@ -66,7 +66,7 @@ function getDevCredential(
 
 export default function CompleteScreen() {
   const theme = useTheme();
-  const { completeOnboarding, selectedSetupType } = useOnboarding();
+  const { selectedSetupType } = useOnboarding();
   const isSelfHosted = selectedSetupType === 'self-hosted';
 
   // Check if dev credentials are available (only in dev mode, never in production)
@@ -228,10 +228,13 @@ export default function CompleteScreen() {
           },
         });
       } else {
-        // For cloud, we'll handle it later
-        // For now, just complete onboarding
-        await completeOnboarding();
-        router.replace('/(app)/home');
+        router.push({
+          pathname: '/(onboarding)/verify',
+          params: {
+            host: finalHost,
+            apiKey: finalApiKey,
+          },
+        });
       }
     }
   };
@@ -345,7 +348,7 @@ export default function CompleteScreen() {
                   variant="bodySmall"
                   style={[styles.exampleText, { color: theme.colors.onSurfaceVariant }]}
                 >
-                  Example: https://umami.example.com
+                  Example: {isSelfHosted ? 'https://umami.example.com' : 'https://api.umami.is'}
                 </Text>
               )}
             </View>
