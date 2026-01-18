@@ -1,6 +1,6 @@
-import { buildInstanceCacheKey, getCached, isFresh, setCached } from '@/lib/cache/queryCache';
-import { instanceFetchJson } from '@/lib/session/instanceFetch';
-import { getInstanceById } from '@/lib/storage/instances';
+import { buildCacheKey, getCached, isFresh, setCached } from '@/lib/cache/queryCache';
+import { sessionFetchJson } from '@/lib/session/fetch';
+import { getInstance } from '@/lib/storage/singleInstance';
 
 export type UmamiWebsite = {
   id: string;
@@ -28,10 +28,15 @@ export type WebsiteActive = {
   visitors: number;
 };
 
-async function apiPrefix(instanceId: string): Promise<string> {
-  const inst = await getInstanceById(instanceId);
-  if (!inst) throw new Error('Instance not found');
-  return inst.setupType === 'cloud' ? '/v1' : '/api';
+async function instanceInfo(): Promise<{ prefix: string; scope: string }> {
+  const inst = await getInstance();
+  if (!inst) throw new Error('No instance configured');
+  const host = inst.host.replace(/\/$/, '');
+  return {
+    prefix: inst.setupType === 'cloud' ? '/v1' : '/api',
+    // Scope cache to this specific connection/user without storing secrets in the key.
+    scope: `${inst.setupType}:${inst.umamiUserId ?? 'unknown'}:${host}`,
+  };
 }
 
 function toQuery(params: Record<string, string | number | undefined>): string {
@@ -42,37 +47,32 @@ function toQuery(params: Record<string, string | number | undefined>): string {
   return qs ? `?${qs}` : '';
 }
 
-export async function listWebsitesCached(
-  instanceId: string,
-  ttlMs = 5 * 60 * 1000
-): Promise<{
+export async function listWebsitesCached(ttlMs = 5 * 60 * 1000): Promise<{
   data: UmamiWebsite[];
   fromCache: boolean;
 }> {
-  const prefix = await apiPrefix(instanceId);
-  const key = buildInstanceCacheKey(instanceId, `websites:${prefix}`);
+  const { prefix, scope } = await instanceInfo();
+  const key = buildCacheKey(`${scope}:websites:${prefix}`);
 
   const cached = await getCached<WebsitesResponse>(key);
   if (cached && isFresh(cached.storedAt, ttlMs)) {
     return { data: cached.data.data ?? [], fromCache: true };
   }
 
-  const fresh = await instanceFetchJson<WebsitesResponse>(instanceId, `${prefix}/websites`);
+  const fresh = await sessionFetchJson<WebsitesResponse>(`${prefix}/websites`);
   await setCached(key, fresh);
   return { data: fresh.data ?? [], fromCache: false };
 }
 
 export async function getWebsiteStatsCached(
-  instanceId: string,
   websiteId: string,
   input: { startAt: number; endAt: number; timezone?: string },
   ttlMs = 60 * 1000
 ): Promise<{ data: WebsiteStats; fromCache: boolean }> {
-  const prefix = await apiPrefix(instanceId);
+  const { prefix, scope } = await instanceInfo();
   const qs = toQuery({ startAt: input.startAt, endAt: input.endAt, timezone: input.timezone });
-  const key = buildInstanceCacheKey(
-    instanceId,
-    `stats:${prefix}:${websiteId}:${input.startAt}:${input.endAt}:${input.timezone ?? ''}`
+  const key = buildCacheKey(
+    `${scope}:stats:${prefix}:${websiteId}:${input.startAt}:${input.endAt}:${input.timezone ?? ''}`
   );
 
   const cached = await getCached<WebsiteStats>(key);
@@ -80,31 +80,24 @@ export async function getWebsiteStatsCached(
     return { data: cached.data, fromCache: true };
   }
 
-  const fresh = await instanceFetchJson<WebsiteStats>(
-    instanceId,
-    `${prefix}/websites/${websiteId}/stats${qs}`
-  );
+  const fresh = await sessionFetchJson<WebsiteStats>(`${prefix}/websites/${websiteId}/stats${qs}`);
   await setCached(key, fresh);
   return { data: fresh, fromCache: false };
 }
 
 export async function getWebsiteActiveCached(
-  instanceId: string,
   websiteId: string,
   ttlMs = 10 * 1000
 ): Promise<{ data: WebsiteActive; fromCache: boolean }> {
-  const prefix = await apiPrefix(instanceId);
-  const key = buildInstanceCacheKey(instanceId, `active:${prefix}:${websiteId}`);
+  const { prefix, scope } = await instanceInfo();
+  const key = buildCacheKey(`${scope}:active:${prefix}:${websiteId}`);
 
   const cached = await getCached<WebsiteActive>(key);
   if (cached && isFresh(cached.storedAt, ttlMs)) {
     return { data: cached.data, fromCache: true };
   }
 
-  const fresh = await instanceFetchJson<WebsiteActive>(
-    instanceId,
-    `${prefix}/websites/${websiteId}/active`
-  );
+  const fresh = await sessionFetchJson<WebsiteActive>(`${prefix}/websites/${websiteId}/active`);
   await setCached(key, fresh);
   return { data: fresh, fromCache: false };
 }

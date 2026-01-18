@@ -1,15 +1,14 @@
 import { getWebsiteActiveCached, listWebsitesCached } from '@/lib/api/umamiData';
+import { getInstance } from '@/lib/storage/singleInstance';
 import { getSelectedWebsiteId, setSelectedWebsiteId } from '@/lib/storage/websiteSelection';
-import { router, useFocusEffect, useGlobalSearchParams } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function InstanceRealtimeScreen() {
+export default function RealtimeScreen() {
   const theme = useTheme();
-  const params = useGlobalSearchParams<{ instanceId?: string | string[] }>();
-  const instanceId = Array.isArray(params.instanceId) ? params.instanceId[0] : params.instanceId;
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -17,44 +16,49 @@ export default function InstanceRealtimeScreen() {
   const [activeVisitors, setActiveVisitors] = React.useState<number | null>(null);
 
   const refresh = React.useCallback(async () => {
-    if (!instanceId) return;
     setIsLoading(true);
     setError(null);
     try {
-      const websites = await listWebsitesCached(instanceId);
-      let selected = await getSelectedWebsiteId(instanceId);
-
-      if (websites.data.length === 0) {
-        await setSelectedWebsiteId(instanceId, null);
+      const inst = await getInstance();
+      if (!inst) {
+        setError('Not connected.');
         setSelectedWebsiteLabel(null);
         setActiveVisitors(null);
-        setIsLoading(false);
+        return;
+      }
+
+      const websites = await listWebsitesCached();
+      let selected = await getSelectedWebsiteId();
+
+      if (websites.data.length === 0) {
+        await setSelectedWebsiteId(null);
+        setSelectedWebsiteLabel(null);
+        setActiveVisitors(null);
         return;
       }
 
       if (!selected && websites.data.length === 1) {
         selected = websites.data[0]?.id ?? null;
-        if (selected) await setSelectedWebsiteId(instanceId, selected);
+        if (selected) await setSelectedWebsiteId(selected);
       }
 
       const selectedWebsite = selected ? websites.data.find((w) => w.id === selected) : undefined;
       if (!selectedWebsite) {
-        await setSelectedWebsiteId(instanceId, null);
+        await setSelectedWebsiteId(null);
         setSelectedWebsiteLabel(null);
         setActiveVisitors(null);
-        setIsLoading(false);
         return;
       }
 
       setSelectedWebsiteLabel(`${selectedWebsite.name} — ${selectedWebsite.domain}`);
-      const active = await getWebsiteActiveCached(instanceId, selectedWebsite.id);
+      const active = await getWebsiteActiveCached(selectedWebsite.id);
       setActiveVisitors(active.data.visitors);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load realtime');
     } finally {
       setIsLoading(false);
     }
-  }, [instanceId]);
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -76,23 +80,18 @@ export default function InstanceRealtimeScreen() {
         </View>
 
         <View style={styles.actions}>
-          <Button mode="outlined" onPress={refresh} disabled={!instanceId || isLoading}>
+          <Button mode="outlined" onPress={refresh} disabled={isLoading}>
             Refresh
           </Button>
-          <Button
-            mode="contained"
-            onPress={() =>
-              instanceId
-                ? router.push({
-                    pathname: '/(app)/instance/[instanceId]/websites',
-                    params: { instanceId },
-                  })
-                : null
-            }
-            disabled={!instanceId}
-          >
-            Choose website
-          </Button>
+          {error === 'Not connected.' ? (
+            <Button mode="contained" onPress={() => router.push('/(onboarding)/welcome')}>
+              Connect
+            </Button>
+          ) : (
+            <Button mode="contained" onPress={() => router.push('/(app)/websites')}>
+              Choose website
+            </Button>
+          )}
         </View>
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>

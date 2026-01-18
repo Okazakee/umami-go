@@ -1,15 +1,14 @@
-import { router, useFocusEffect, useGlobalSearchParams } from 'expo-router';
+import { type UmamiWebsite, listWebsitesCached } from '@/lib/api/umamiData';
+import { getInstance } from '@/lib/storage/singleInstance';
+import { getSelectedWebsiteId, setSelectedWebsiteId } from '@/lib/storage/websiteSelection';
+import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, IconButton, Snackbar, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { listWebsitesCached, type UmamiWebsite } from '@/lib/api/umamiData';
-import { getSelectedWebsiteId, setSelectedWebsiteId } from '@/lib/storage/websiteSelection';
 
-export default function InstanceWebsitesScreen() {
+export default function WebsitesScreen() {
   const theme = useTheme();
-  const params = useGlobalSearchParams<{ instanceId?: string | string[] }>();
-  const instanceId = Array.isArray(params.instanceId) ? params.instanceId[0] : params.instanceId;
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -19,14 +18,22 @@ export default function InstanceWebsitesScreen() {
   const [snack, setSnack] = React.useState<string | null>(null);
 
   const refresh = React.useCallback(async () => {
-    if (!instanceId) return;
     setIsLoading(true);
     setError(null);
     try {
-      const selected = await getSelectedWebsiteId(instanceId);
+      const inst = await getInstance();
+      if (!inst) {
+        setError('Not connected.');
+        setWebsites([]);
+        setFromCache(false);
+        setSelectedWebsiteIdState(null);
+        return;
+      }
+
+      const selected = await getSelectedWebsiteId();
       setSelectedWebsiteIdState(selected);
 
-      const res = await listWebsitesCached(instanceId);
+      const res = await listWebsitesCached();
       setWebsites(res.data);
       setFromCache(res.fromCache);
     } catch (err) {
@@ -34,7 +41,7 @@ export default function InstanceWebsitesScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [instanceId]);
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -57,9 +64,14 @@ export default function InstanceWebsitesScreen() {
         </View>
 
         <View style={styles.actions}>
-          <Button mode="outlined" onPress={refresh} disabled={!instanceId || isLoading}>
+          <Button mode="outlined" onPress={refresh} disabled={isLoading}>
             Refresh
           </Button>
+          {error === 'Not connected.' ? (
+            <Button mode="contained" onPress={() => router.push('/(onboarding)/welcome')}>
+              Connect
+            </Button>
+          ) : null}
         </View>
 
         {websites.map((w) => (
@@ -71,14 +83,10 @@ export default function InstanceWebsitesScreen() {
               { backgroundColor: w.id === selectedWebsiteId ? '#262642' : theme.colors.surface },
             ]}
             onPress={async () => {
-              if (!instanceId) return;
-              await setSelectedWebsiteId(instanceId, w.id);
+              await setSelectedWebsiteId(w.id);
               setSelectedWebsiteIdState(w.id);
               setSnack(`Selected: ${w.domain}`);
-              router.push({
-                pathname: '/(app)/instance/[instanceId]/overview',
-                params: { instanceId },
-              });
+              router.push('/(app)/overview');
             }}
           >
             <Card.Content style={styles.cardContent}>
@@ -106,7 +114,7 @@ export default function InstanceWebsitesScreen() {
           <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <Card.Content style={styles.cardContent}>
               <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                No websites found for this instance.
+                No websites found.
               </Text>
             </Card.Content>
           </Card>

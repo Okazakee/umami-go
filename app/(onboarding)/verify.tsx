@@ -5,20 +5,7 @@ import { Button, Icon, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { UmamiApiClient, type UmamiApiError } from '../../lib/api/umami';
-import { getInstanceById, setInstanceSecrets, upsertInstance } from '../../lib/storage/instances';
-
-function hashBase36(value: string): string {
-  let hash = 5381;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash * 33) ^ value.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(36);
-}
-
-function stableSelfHostedInstanceId(umamiUserId: string, host: string): string {
-  // Avoid collisions across different Umami hosts with same user id.
-  return `${umamiUserId}_${hashBase36(host)}`;
-}
+import { getInstance, setInstance, setSecrets } from '../../lib/storage/singleInstance';
 
 function normalizeCloudHost(host: string): string {
   const trimmed = host.replace(/\/$/, '');
@@ -69,7 +56,12 @@ export default function VerifyScreen() {
       setError(null);
 
       try {
-        let instanceAlreadyExists = false;
+        const existing = await getInstance();
+        if (existing) {
+          setError('Already connected. Reset in Settings to connect again.');
+          setIsVerifying(false);
+          return;
+        }
 
         if (selectedSetupType === 'self-hosted') {
           if (!params.host || !params.username || !params.password) {
@@ -86,18 +78,14 @@ export default function VerifyScreen() {
           });
 
           const displayName = params.name?.trim();
-          const instanceId = stableSelfHostedInstanceId(response.user.id, params.host);
-          instanceAlreadyExists = !!(await getInstanceById(instanceId));
-          await upsertInstance({
-            id: instanceId,
+          await setInstance({
             name: displayName || `${params.host} (${params.username})`,
             host: params.host,
             username: params.username,
             umamiUserId: response.user.id,
             setupType: 'self-hosted',
-            makeActive: true,
           });
-          await setInstanceSecrets(instanceId, {
+          await setSecrets({
             token: response.token,
             password: params.password,
           });
@@ -149,32 +137,24 @@ export default function VerifyScreen() {
               ? (data.user as { id?: string; username?: string })
               : (data as { id?: string; username?: string });
 
-          const cloudInstanceId = `cloud_${hashBase36(`${apiHost}|${apiKey}`)}`;
-          instanceAlreadyExists = !!(await getInstanceById(cloudInstanceId));
           const displayName = params.name?.trim();
-          await upsertInstance({
-            id: cloudInstanceId,
+          await setInstance({
             name: displayName || (user.username ? `Umami Cloud (${user.username})` : 'Umami Cloud'),
             host: apiHost,
             username: user.username ?? null,
             umamiUserId: user.id ?? null,
             setupType: 'cloud',
-            makeActive: true,
           });
-          await setInstanceSecrets(cloudInstanceId, { apiKey });
+          await setSecrets({ apiKey });
         } else {
           setError('Missing setup type selection');
           setIsVerifying(false);
           return;
         }
 
-        // Complete onboarding and navigate to home
+        // Complete onboarding and navigate to app
         await completeOnboarding();
-        router.replace(
-          instanceAlreadyExists
-            ? { pathname: '/(app)/home', params: { notice: 'instance_exists' } }
-            : '/(app)/home'
-        );
+        router.replace('/(app)/overview');
       } catch (err) {
         const apiError = err as UmamiApiError;
         let errorMessage = 'Failed to connect to Umami instance';

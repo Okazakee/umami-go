@@ -5,7 +5,6 @@ export default function AppLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="debug" />
-      <Stack.Screen name="instance/[instanceId]" />
     </Stack>
   );
 }

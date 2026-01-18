@@ -34,7 +34,7 @@ export default function Index() {
       hasRedirectedRef.current = true;
 
       if (isOnboardingComplete && !inAppGroup) {
-        router.replace('/(app)/home');
+        router.replace('/(app)/overview');
       } else if (!isOnboardingComplete && !inOnboardingGroup) {
         router.replace('/(onboarding)/welcome');
       }

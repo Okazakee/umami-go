@@ -5,15 +5,18 @@ This document describes the **intended product scope** only: what each screen sh
 ## Global scope (applies everywhere)
 
 - **Navigation groups**
-  - **Onboarding**: only for first-time setup or reconnect
+  - **Onboarding**: first-time setup only
   - **App**: main usage
-- **Instances**
-  - Support **multiple instances** (self-hosted and cloud)
-  - Exactly **one active instance** at a time (default selection)
+- **Single instance**
+  - The app supports **exactly one Umami connection** at a time (self-hosted *or* cloud).
+  - “Connecting again” is **blocked** unless the user first disconnects/reset in Settings.
+- **Websites**
+  - The connection can contain multiple websites.
+  - The app has one “Current website” selection that drives Overview + Realtime.
 - **Authentication**
-  - Users should be “always connected when needed”
-  - If **host is down**: show non-blocking warning + retry path
-  - If **credentials changed / invalid**: prompt to reconnect
+  - Users should be “always connected when needed”.
+  - If **host is down**: show non-blocking warning + retry path.
+  - If **credentials changed / invalid**: prompt to disconnect and reconnect (reset-first).
 - **Global UX states**
   - Loading
   - Empty states
@@ -67,7 +70,7 @@ This document describes the **intended product scope** only: what each screen sh
   - Disabled primary CTA until valid
 
 ### Verify / Connect
-- **Purpose**: Verify the provided credentials and create an instance.
+- **Purpose**: Verify the provided credentials and save the single connection.
 - **Settings/controls**
   - None (operation screen)
 - **Required states**
@@ -77,111 +80,82 @@ This document describes the **intended product scope** only: what each screen sh
     - Host unreachable → show actionable error + back to form
     - Unauthorized → show actionable error + back to form
     - Other → show message + back to form
-
-### Reconnect (expected UX, may reuse onboarding)
-- **Purpose**: Recover from invalid credentials or missing secrets without confusing the user.
-- **Settings/controls**
-  - Update credentials for an existing instance (preferred)
-  - Or re-add as new instance (fallback)
-- **Required states**
-  - Clear messaging: what failed and what user needs to do
+  - If already connected → show “Already connected. Disconnect in Settings to connect again.”
 
 ---
 
 ## Main app (top-level tabs)
 
-### Instances (Home)
-- **Purpose**: Manage and enter instances.
-- **Settings/controls**
-  - Add instance
-  - Select active instance (tap)
-  - (Later) edit / delete / reconnect per instance
+### Overview
+- **Purpose**: Default dashboard landing.
+- **Expected content**
+  - High-level KPIs for the **Current website** (visitors, pageviews, etc.)
+  - Time range selector (uses default from Settings; later can be inline override)
+  - Current website summary (selected label, website count)
 - **Required states**
-  - Empty list state (no instances)
-  - List state with active indicator
-  - Error state if instance metadata is corrupted/unavailable
+  - Not connected → “Connect” CTA
+  - Loading
+  - No websites / no data yet
+  - Host down
+  - Unauthorized → “Disconnect & reconnect” (reset-first)
 
-### App Settings
-- **Purpose**: Global app preferences.
+### Websites
+- **Purpose**: Choose the “Current website” for the app.
+- **Expected content**
+  - List of websites (name + domain)
+  - Select website to drive other tabs
+  - (Later) search/filter
+- **Required states**
+  - Not connected → “Connect” CTA
+  - Loading
+  - Empty (no websites)
+  - Host down / unauthorized
+
+### Realtime
+- **Purpose**: Live analytics for the Current website.
+- **Expected content**
+  - Live visitors
+  - (Later) current pages / referrers / countries / devices
+  - (Later) polling interval & pause
+- **Required states**
+  - Not connected → “Connect” CTA
+  - Loading
+  - No website selected → “Choose website”
+  - Host down / unauthorized
+
+### Settings
+- **Purpose**: App preferences + connection management.
 - **Expected settings**
-  - Default time range
-  - Refresh interval defaults
-  - Data usage / background refresh preferences (if supported)
-  - Troubleshooting shortcuts (reset onboarding / clear cache) (optional)
+  - **Connection**
+    - Show connected instance details (name, type, host)
+    - Disconnect / reset (required to connect again)
+  - **Preferences**
+    - Default time range
+    - Refresh interval defaults
+  - **Data & background**
+    - Data usage / background refresh preferences (if supported)
+  - **Troubleshooting**
+    - Docs links
+    - Connect/change instance (if connected → prompt disconnect first)
 
 ### Debug (dev-only)
 - **Purpose**: Developer diagnostics and maintenance actions.
 - **Expected controls**
   - Refresh diagnostic info
   - Clear local data / reset onboarding
-  - Inspect active instance + auth state (dev-only)
-
----
-
-## Instance area (per-instance tabs)
-
-### Instance shell (Tabs)
-- **Purpose**: Provide stable navigation inside an instance.
-- **Required behaviors**
-  - Ensure instance exists; if not, return to instances list
-  - Ensure session/auth is valid before data calls
-  - Non-blocking notifications for host down
-  - Actionable prompt for reconnect when unauthorized
-
-### Overview
-- **Purpose**: Default dashboard landing for an instance.
-- **Expected content**
-  - High-level KPIs (visitors, pageviews, sessions, bounce, etc.)
-  - Time range selector
-  - Website selector (or “All sites”)
-- **Required states**
-  - Loading
-  - No websites / no data yet
-  - Host down
-  - Unauthorized → reconnect CTA
-
-### Websites
-- **Purpose**: Manage/select websites for the instance.
-- **Expected content**
-  - List of websites (name + domain)
-  - Select website to drive other tabs
-  - (Later) search/filter
-- **Required states**
-  - Loading
-  - Empty (no websites)
-  - Host down / unauthorized
-
-### Realtime
-- **Purpose**: Live analytics for a selected website (or all).
-- **Expected content**
-  - Live visitors
-  - Current pages
-  - Referrers / countries / devices (as feasible)
-  - Polling interval & pause
-- **Required states**
-  - Loading
-  - Host down / unauthorized
-
-### Instance Settings
-- **Purpose**: Manage a specific instance.
-- **Expected settings**
-  - Rename instance
-  - Update host
-  - Reconnect / rotate credentials (password/apiKey)
-  - Remove instance
-  - Set as active (if multiple entry paths exist)
+  - Inspect stored connection + auth state (dev-only)
 
 ---
 
 ## “Done” criteria (UX-level)
 
 - **First run**: onboarding is linear, understandable, and errors are actionable.
-- **Returning user**: lands in app and can enter an instance in one tap.
+- **Returning user**: lands in app and sees Overview immediately.
 - **Always-connected**:
   - transparent re-auth when possible
-  - clear reconnect when not possible
+  - clear disconnect/reconnect when not possible
 - **Failure states** are consistent:
   - Host unreachable → warn + retry
-  - Unauthorized → reconnect CTA
-  - Missing instance → safe redirect to Instances list
+  - Unauthorized → disconnect + reconnect CTA
+  - Missing connection → safe redirect to onboarding
 

@@ -22,10 +22,26 @@ export default function AppTabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="overview"
         options={{
-          title: 'Instances',
-          tabBarIcon: ({ color, size }) => <Icon source="server" color={color} size={size} />,
+          title: 'Overview',
+          tabBarIcon: ({ color, size }) => <Icon source="chart-line" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="websites"
+        options={{
+          title: 'Websites',
+          tabBarIcon: ({ color, size }) => <Icon source="web" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="realtime"
+        options={{
+          title: 'Realtime',
+          tabBarIcon: ({ color, size }) => (
+            <Icon source="lightning-bolt" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen

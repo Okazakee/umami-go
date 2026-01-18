@@ -9,8 +9,13 @@ type CacheRecord<T> = {
 const PREFIX = '@umami-go:cache:';
 const memory = new Map<string, { storedAt: number; data: unknown }>();
 
+export function buildCacheKey(key: string): string {
+  return `${PREFIX}${key}`;
+}
+
 export function buildInstanceCacheKey(instanceId: string, key: string): string {
-  return `${PREFIX}${instanceId}:${key}`;
+  // Legacy helper (multi-instance). Keep for backwards compatibility.
+  return buildCacheKey(`${instanceId}:${key}`);
 }
 
 export function isFresh(storedAt: number, ttlMs: number): boolean {
@@ -39,4 +44,9 @@ export async function setCached<T>(fullKey: string, data: T): Promise<void> {
   const record: CacheRecord<T> = { v: 1, storedAt: Date.now(), data };
   memory.set(fullKey, { storedAt: record.storedAt, data: record.data as unknown });
   await AsyncStorage.setItem(fullKey, JSON.stringify(record));
+}
+
+export async function clearCached(fullKey: string): Promise<void> {
+  memory.delete(fullKey);
+  await AsyncStorage.removeItem(fullKey);
 }

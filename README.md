@@ -1,20 +1,22 @@
 # Umami Go
 
-A mobile application for managing and monitoring your Umami analytics instances on the go. Built with React Native and Expo.
+A mobile application for managing and monitoring your Umami analytics on the go. Built with React Native and Expo.
 
 ## Project Goal
 
-Umami Go provides a native mobile experience for interacting with your Umami analytics instances, allowing you to:
+Umami Go provides a native mobile experience for interacting with your Umami analytics, allowing you to:
 - Connect to self-hosted Umami instances or Umami Cloud
-- Manage multiple analytics instances from your mobile device
-- Monitor your analytics data on the go
+- Monitor your analytics data on the go (Overview + Realtime)
+- Switch between websites inside the connected Umami instance
 
 ## Features
 
 - **Onboarding Flow**: Guided setup for first-time users
-- **Multiple Instance Support**: Connect to both self-hosted and Umami Cloud instances
+- **Single Instance Connection**: Connect to either self-hosted or Umami Cloud (one connection at a time)
+- **Website Selection**: Choose a “current website” used by Overview + Realtime
 - **Secure Credential Storage**: Credentials are stored securely on-device
-- **Connection Verification**: Automatic verification of instance connectivity
+- **Session Keep-Alive**: Revalidates sessions and auto re-logins for self-hosted instances (when possible)
+- **Smart Caching**: Cached API reads for faster UX and fewer requests
 - **Modern UI**: Built with React Native Paper for a polished, Material Design experience
 
 ## Tech Stack
@@ -115,7 +117,14 @@ UMAMI_CLOUD_API_KEY=um_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 umami-go/
 ├── app/                    # Expo Router app directory
 │   ├── (app)/             # Main app screens
-│   │   └── home.tsx       # Home dashboard
+│   │   ├── (tabs)/        # Bottom tabs
+│   │   │   ├── _layout.tsx
+│   │   │   ├── overview.tsx
+│   │   │   ├── websites.tsx
+│   │   │   ├── realtime.tsx
+│   │   │   └── settings.tsx
+│   │   ├── _layout.tsx
+│   │   └── debug.tsx
 │   ├── (onboarding)/      # Onboarding flow
 │   │   ├── welcome.tsx    # Welcome screen
 │   │   ├── features.tsx  # Features overview
@@ -128,9 +137,17 @@ umami-go/
 │   └── OnboardingContext.tsx
 ├── lib/                   # Utility libraries
 │   ├── api/              # API client
-│   │   └── umami.ts      # Umami API client
+│   │   ├── umami.ts      # Umami API client
+│   │   └── umamiData.ts  # Cached Umami data helpers
+│   ├── cache/            # Query cache primitives
+│   │   └── queryCache.ts
+│   ├── session/          # Session + authenticated fetch helpers
+│   │   ├── session.ts
+│   │   └── fetch.ts
 │   └── storage/          # Storage utilities
-│       └── credentials.ts
+│       ├── credentials.ts
+│       ├── singleInstance.ts
+│       └── websiteSelection.ts
 ├── assets/               # Images and static assets
 ├── app.config.ts         # Expo configuration
 └── package.json
@@ -189,7 +206,7 @@ bun run lint:fix
 ## Security Notes
 
 - **Credential Storage**: Sensitive data (passwords, tokens, API keys) are stored using `expo-secure-store`, which provides encrypted storage using the device's keychain (iOS) or keystore (Android)
-- **Non-Sensitive Data**: Instance metadata (name, host) is stored in AsyncStorage
+- **Non-Sensitive Data**: Connection metadata and app settings are stored in AsyncStorage
 - Environment variables are only used in development mode
 - Production builds never include sensitive credentials
 - All API communication uses HTTPS

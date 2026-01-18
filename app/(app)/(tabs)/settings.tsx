@@ -1,12 +1,11 @@
 import { useOnboarding } from '@/contexts/OnboardingContext';
-import { clearCredentials } from '@/lib/storage/credentials';
-import { clearAllInstances } from '@/lib/storage/instances';
 import {
   type DefaultTimeRange,
   type RefreshIntervalSeconds,
   getAppSettings,
   patchAppSettings,
 } from '@/lib/storage/settings';
+import { type SingleInstanceRecord, getInstance } from '@/lib/storage/singleInstance';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { Linking, ScrollView, StyleSheet, View } from 'react-native';
@@ -55,6 +54,7 @@ export default function SettingsScreen() {
   const dialogStyle = React.useMemo(() => ({ borderRadius: 12 }), []);
 
   const [isLoading, setIsLoading] = React.useState(true);
+  const [instance, setInstance] = React.useState<SingleInstanceRecord | null>(null);
   const [defaultTimeRange, setDefaultTimeRange] = React.useState<DefaultTimeRange>('7d');
   const [refreshIntervalSeconds, setRefreshIntervalSeconds] =
     React.useState<RefreshIntervalSeconds>(300);
@@ -63,14 +63,16 @@ export default function SettingsScreen() {
 
   const [rangeDialogOpen, setRangeDialogOpen] = React.useState(false);
   const [refreshDialogOpen, setRefreshDialogOpen] = React.useState(false);
+  const [confirmDisconnectOpen, setConfirmDisconnectOpen] = React.useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = React.useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = React.useState(false);
 
   React.useEffect(() => {
     let mounted = true;
     (async () => {
-      const s = await getAppSettings();
+      const [s, inst] = await Promise.all([getAppSettings(), getInstance()]);
       if (!mounted) return;
+      setInstance(inst);
       setDefaultTimeRange(s.defaultTimeRange);
       setRefreshIntervalSeconds(s.refreshIntervalSeconds);
       setWifiOnly(s.wifiOnly);
@@ -98,14 +100,20 @@ export default function SettingsScreen() {
     []
   );
 
+  const handleDisconnect = React.useCallback(async () => {
+    setConfirmDisconnectOpen(false);
+    await resetOnboarding();
+    router.replace('/(onboarding)/welcome');
+  }, [resetOnboarding]);
+
   const handleClearInstances = React.useCallback(async () => {
     setConfirmClearOpen(false);
-    await Promise.all([clearAllInstances(), clearCredentials()]);
-  }, []);
+    await resetOnboarding();
+    router.replace('/(onboarding)/welcome');
+  }, [resetOnboarding]);
 
   const handleResetApp = React.useCallback(async () => {
     setConfirmResetOpen(false);
-    await Promise.all([clearAllInstances(), clearCredentials()]);
     await resetOnboarding();
     router.replace('/(onboarding)/welcome');
   }, [resetOnboarding]);
@@ -126,6 +134,31 @@ export default function SettingsScreen() {
             App preferences and troubleshooting.
           </Text>
         </View>
+
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+          <Card.Title title="Connection" />
+          <Card.Content style={styles.cardContent}>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+              {instance
+                ? `${instance.name} — ${instance.setupType === 'cloud' ? 'Cloud' : 'Self-hosted'}`
+                : 'Not connected.'}
+            </Text>
+            {instance ? (
+              <>
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                  Host: {instance.host}
+                </Text>
+                <Button mode="contained" onPress={() => setConfirmDisconnectOpen(true)}>
+                  Disconnect
+                </Button>
+              </>
+            ) : (
+              <Button mode="contained" onPress={() => router.push('/(onboarding)/choice')}>
+                Connect
+              </Button>
+            )}
+          </Card.Content>
+        </Card>
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Preferences" />
@@ -175,8 +208,13 @@ export default function SettingsScreen() {
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Troubleshooting" />
           <Card.Content style={styles.cardContent}>
-            <Button mode="outlined" onPress={() => router.push('/(onboarding)/choice')}>
-              Add / reconnect instance
+            <Button
+              mode="outlined"
+              onPress={() =>
+                instance ? setConfirmDisconnectOpen(true) : router.push('/(onboarding)/choice')
+              }
+            >
+              Connect / change instance
             </Button>
             <Button mode="outlined" onPress={() => Linking.openURL('https://umami.is/docs')}>
               Open Umami docs
@@ -253,6 +291,23 @@ export default function SettingsScreen() {
               <RadioButton.Item label={labelForInterval(300)} value="300" />
             </RadioButton.Group>
           </Dialog.Content>
+        </Dialog>
+
+        <Dialog
+          visible={confirmDisconnectOpen}
+          onDismiss={() => setConfirmDisconnectOpen(false)}
+          style={dialogStyle}
+        >
+          <Dialog.Title>Disconnect?</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+              This removes the current Umami connection from this device and restarts onboarding.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setConfirmDisconnectOpen(false)}>Cancel</Button>
+            <Button onPress={handleDisconnect}>Disconnect</Button>
+          </Dialog.Actions>
         </Dialog>
 
         {__DEV__ ? (

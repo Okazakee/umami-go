@@ -1,25 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-function keyFor(instanceId: string): string {
-  return `@umami-go:selected-website:${instanceId}`;
-}
+const KEY = '@umami-go:selected-website';
 
-export async function getSelectedWebsiteId(instanceId: string): Promise<string | null> {
+export async function getSelectedWebsiteId(): Promise<string | null> {
   try {
-    return await AsyncStorage.getItem(keyFor(instanceId));
+    return await AsyncStorage.getItem(KEY);
   } catch {
     return null;
   }
 }
 
-export async function setSelectedWebsiteId(
-  instanceId: string,
-  websiteId: string | null
-): Promise<void> {
-  const key = keyFor(instanceId);
+export async function setSelectedWebsiteId(websiteId: string | null): Promise<void> {
   if (!websiteId) {
-    await AsyncStorage.removeItem(key);
+    await AsyncStorage.removeItem(KEY);
     return;
   }
-  await AsyncStorage.setItem(key, websiteId);
+  await AsyncStorage.setItem(KEY, websiteId);
+}
+
+export async function clearSelectedWebsiteId(): Promise<void> {
+  await AsyncStorage.removeItem(KEY);
 }

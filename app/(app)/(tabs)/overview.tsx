@@ -1,16 +1,15 @@
 import { type WebsiteStats, getWebsiteStatsCached, listWebsitesCached } from '@/lib/api/umamiData';
 import { getAppSettings } from '@/lib/storage/settings';
+import { getInstance } from '@/lib/storage/singleInstance';
 import { getSelectedWebsiteId, setSelectedWebsiteId } from '@/lib/storage/websiteSelection';
-import { router, useFocusEffect, useGlobalSearchParams } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function InstanceOverviewScreen() {
+export default function OverviewScreen() {
   const theme = useTheme();
-  const params = useGlobalSearchParams<{ instanceId?: string | string[] }>();
-  const instanceId = Array.isArray(params.instanceId) ? params.instanceId[0] : params.instanceId;
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -20,37 +19,43 @@ export default function InstanceOverviewScreen() {
   const [stats, setStats] = React.useState<WebsiteStats | null>(null);
 
   const refresh = React.useCallback(async () => {
-    if (!instanceId) return;
     setIsLoading(true);
     setError(null);
     try {
-      const websites = await listWebsitesCached(instanceId);
-      setWebsiteCount(websites.data.length);
-      let selected = await getSelectedWebsiteId(instanceId);
-
-      if (websites.data.length === 0) {
-        await setSelectedWebsiteId(instanceId, null);
+      const inst = await getInstance();
+      if (!inst) {
+        setError('Not connected.');
+        setWebsiteCount(null);
         setSelectedWebsiteIdState(null);
         setSelectedWebsiteLabel(null);
         setStats(null);
-        setIsLoading(false);
         return;
       }
 
-      // If only one website exists, auto-select it.
-      if (!selected && websites.data.length === 1) {
-        selected = websites.data[0]?.id ?? null;
-        if (selected) await setSelectedWebsiteId(instanceId, selected);
-      }
+      const websites = await listWebsitesCached();
+      setWebsiteCount(websites.data.length);
 
-      // If the selected website no longer exists, clear selection.
-      const selectedWebsite = selected ? websites.data.find((w) => w.id === selected) : undefined;
-      if (!selectedWebsite) {
-        await setSelectedWebsiteId(instanceId, null);
+      let selected = await getSelectedWebsiteId();
+
+      if (websites.data.length === 0) {
+        await setSelectedWebsiteId(null);
         setSelectedWebsiteIdState(null);
         setSelectedWebsiteLabel(null);
         setStats(null);
-        setIsLoading(false);
+        return;
+      }
+
+      if (!selected && websites.data.length === 1) {
+        selected = websites.data[0]?.id ?? null;
+        if (selected) await setSelectedWebsiteId(selected);
+      }
+
+      const selectedWebsite = selected ? websites.data.find((w) => w.id === selected) : undefined;
+      if (!selectedWebsite) {
+        await setSelectedWebsiteId(null);
+        setSelectedWebsiteIdState(null);
+        setSelectedWebsiteLabel(null);
+        setStats(null);
         return;
       }
 
@@ -68,20 +73,22 @@ export default function InstanceOverviewScreen() {
               ? endAt - 30 * 24 * 60 * 60 * 1000
               : endAt - 90 * 24 * 60 * 60 * 1000;
 
-      const res = await getWebsiteStatsCached(instanceId, selectedWebsite.id, { startAt, endAt });
+      const res = await getWebsiteStatsCached(selectedWebsite.id, { startAt, endAt });
       setStats(res.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load overview');
     } finally {
       setIsLoading(false);
     }
-  }, [instanceId]);
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
       refresh();
     }, [refresh])
   );
+
+  const isConnected = error !== 'Not connected.';
 
   return (
     <SafeAreaView
@@ -97,9 +104,14 @@ export default function InstanceOverviewScreen() {
         </View>
 
         <View style={styles.actions}>
-          <Button mode="outlined" onPress={refresh} disabled={!instanceId || isLoading}>
+          <Button mode="outlined" onPress={refresh} disabled={isLoading}>
             Refresh
           </Button>
+          {error === 'Not connected.' ? (
+            <Button mode="contained" onPress={() => router.push('/(onboarding)/welcome')}>
+              Connect
+            </Button>
+          ) : null}
         </View>
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
@@ -111,19 +123,8 @@ export default function InstanceOverviewScreen() {
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
               Selected: {selectedWebsiteLabel ?? '(none)'}
             </Text>
-            {!selectedWebsiteId ? (
-              <Button
-                mode="contained"
-                onPress={() =>
-                  instanceId
-                    ? router.push({
-                        pathname: '/(app)/instance/[instanceId]/websites',
-                        params: { instanceId },
-                      })
-                    : null
-                }
-                disabled={!instanceId}
-              >
+            {isConnected && !selectedWebsiteId ? (
+              <Button mode="contained" onPress={() => router.push('/(app)/websites')}>
                 Choose website
               </Button>
             ) : null}
@@ -133,7 +134,11 @@ export default function InstanceOverviewScreen() {
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Stats" />
           <Card.Content style={styles.cardContent}>
-            {!selectedWebsiteId ? (
+            {!isConnected ? (
+              <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                Connect to view stats.
+              </Text>
+            ) : !selectedWebsiteId ? (
               <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
                 Select a website to view stats.
               </Text>

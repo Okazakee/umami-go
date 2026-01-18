@@ -1,3 +1,12 @@
+import { clearCredentials } from '@/lib/storage/credentials';
+import { clearAllInstances } from '@/lib/storage/instances';
+import {
+  clearInstance,
+  clearSecrets,
+  getInstance,
+  migrateLegacyInstancesToSingleIfNeeded,
+} from '@/lib/storage/singleInstance';
+import { clearSelectedWebsiteId } from '@/lib/storage/websiteSelection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as React from 'react';
 
@@ -31,8 +40,9 @@ export function OnboardingProvider({
 
   const loadOnboardingStatus = async () => {
     try {
-      const value = await AsyncStorage.getItem(ONBOARDING_KEY);
-      setIsOnboardingComplete(value === 'true');
+      await migrateLegacyInstancesToSingleIfNeeded();
+      const instance = await getInstance();
+      setIsOnboardingComplete(!!instance);
     } catch (error) {
       console.error('Error loading onboarding status:', error);
     } finally {
@@ -52,6 +62,14 @@ export function OnboardingProvider({
   const resetOnboarding = async () => {
     try {
       await AsyncStorage.removeItem(ONBOARDING_KEY);
+      await Promise.all([
+        clearInstance(),
+        clearSecrets(),
+        clearSelectedWebsiteId(),
+        // Best-effort cleanup for older installs / debug actions.
+        clearAllInstances(),
+        clearCredentials(),
+      ]);
       setIsOnboardingComplete(false);
       setSelectedSetupType(null);
     } catch (error) {
