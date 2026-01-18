@@ -1,5 +1,4 @@
 import { RankedRow, ScreenHeader, SectionHeader } from '@/components/details';
-import { TrafficNav } from '@/components/trafficNav';
 import * as React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, SegmentedButtons, Text, useTheme } from 'react-native-paper';
@@ -34,13 +33,7 @@ export default function TrafficBreakdownScreen() {
           />
         }
       >
-        <ScreenHeader title="Traffic" subtitle="Breakdown (mock)" />
-
-        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-          <Card.Content style={styles.cardContent}>
-            <TrafficNav value="breakdown" />
-          </Card.Content>
-        </Card>
+        <ScreenHeader title="Breakdown" subtitle="Traffic (mock)" />
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content style={styles.cardContent}>

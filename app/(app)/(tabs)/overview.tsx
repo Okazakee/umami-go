@@ -93,12 +93,16 @@ export default function OverviewScreen() {
             </Text>
           </Pressable>
 
-          <Text variant="displayLarge" style={styles.activeNumber}>
-            42
-          </Text>
-          <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-            Active visitors
-          </Text>
+          {isRealtimeMode ? (
+            <>
+              <Text variant="displayLarge" style={styles.activeNumber}>
+                42
+              </Text>
+              <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                Active visitors
+              </Text>
+            </>
+          ) : null}
         </View>
 
         {isRealtimeMode ? (

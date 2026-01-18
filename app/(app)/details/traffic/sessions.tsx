@@ -1,5 +1,4 @@
 import { RankedRow, ScreenHeader, SectionHeader } from '@/components/details';
-import { TrafficNav } from '@/components/trafficNav';
 import * as React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme } from 'react-native-paper';
@@ -31,13 +30,7 @@ export default function TrafficSessionsScreen() {
           />
         }
       >
-        <ScreenHeader title="Traffic" subtitle="Sessions (mock)" />
-
-        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-          <Card.Content style={styles.cardContent}>
-            <TrafficNav value="sessions" />
-          </Card.Content>
-        </Card>
+        <ScreenHeader title="Sessions" subtitle="Traffic (mock)" />
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content style={styles.cardContent}>

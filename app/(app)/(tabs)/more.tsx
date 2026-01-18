@@ -93,12 +93,6 @@ export default function MoreScreen() {
           <Card.Title title="Behavior" />
           <Card.Content style={styles.cardContent}>
             <MoreRow
-              title="Pages"
-              subtitle="Paths, entry, exit"
-              icon="file-document-outline"
-              onPress={() => router.push('/(app)/details/pages')}
-            />
-            <MoreRow
               title="Goals"
               subtitle="(Placeholder)"
               icon="target"

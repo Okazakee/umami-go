@@ -1,5 +1,4 @@
 import { RankedRow, ScreenHeader, SectionHeader } from '@/components/details';
-import { TrafficNav } from '@/components/trafficNav';
 import * as React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme } from 'react-native-paper';
@@ -31,13 +30,7 @@ export default function TrafficRuntimeScreen() {
           />
         }
       >
-        <ScreenHeader title="Traffic" subtitle="Runtime (mock)" />
-
-        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-          <Card.Content style={styles.cardContent}>
-            <TrafficNav value="runtime" />
-          </Card.Content>
-        </Card>
+        <ScreenHeader title="Runtime" subtitle="Traffic (mock)" />
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content style={styles.cardContent}>
