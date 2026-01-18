@@ -51,17 +51,6 @@ export default function LocationDetailsScreen() {
           </Card.Content>
         </Card>
 
-        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-          <Card.Content style={styles.cardContent}>
-            <Text variant="titleMedium">Map</Text>
-            <View style={[styles.mapPreview, { backgroundColor: '#17162a' }]}>
-              <View style={styles.mapBlob} />
-              <View style={[styles.mapBlob, styles.mapBlob2]} />
-              <View style={[styles.mapBlob, styles.mapBlob3]} />
-            </View>
-          </Card.Content>
-        </Card>
-
         <SectionHeader
           title="Top"
           actionLabel="More"
@@ -195,38 +184,6 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 10,
-  },
-  mapPreview: {
-    height: 170,
-    borderRadius: 16,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  mapBlob: {
-    position: 'absolute',
-    left: '10%',
-    top: '25%',
-    width: '45%',
-    height: '35%',
-    borderRadius: 999,
-    backgroundColor: 'rgba(75, 55, 254, 0.35)',
-    transform: [{ rotate: '-8deg' }],
-  },
-  mapBlob2: {
-    left: '42%',
-    top: '20%',
-    width: '50%',
-    height: '40%',
-    backgroundColor: 'rgba(75, 55, 254, 0.22)',
-    transform: [{ rotate: '10deg' }],
-  },
-  mapBlob3: {
-    left: '30%',
-    top: '55%',
-    width: '38%',
-    height: '26%',
-    backgroundColor: 'rgba(75, 55, 254, 0.18)',
-    transform: [{ rotate: '0deg' }],
   },
   snackWrap: {
     paddingTop: 8,

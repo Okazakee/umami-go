@@ -1,9 +1,10 @@
+import { SkeletonBlock } from '@/components/skeleton';
 import { type UmamiWebsite, listWebsitesCached } from '@/lib/api/umamiData';
 import { getInstance } from '@/lib/storage/singleInstance';
 import { getSelectedWebsiteId, setSelectedWebsiteId } from '@/lib/storage/websiteSelection';
 import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, IconButton, Snackbar, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,6 +18,20 @@ export default function WebsitesScreen() {
   const [fromCache, setFromCache] = React.useState(false);
   const [selectedWebsiteId, setSelectedWebsiteIdState] = React.useState<string | null>(null);
   const [snack, setSnack] = React.useState<string | null>(null);
+  const [faviconErrorById, setFaviconErrorById] = React.useState<Record<string, boolean>>({});
+
+  const faviconUrlForDomain = React.useCallback((domain: string) => {
+    const clean = domain
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '')
+      .trim();
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(clean)}&sz=64`;
+  }, []);
+
+  const faviconFallbackText = React.useCallback((w: UmamiWebsite) => {
+    const label = (w.name || w.domain || '?').trim();
+    return label.slice(0, 1).toUpperCase();
+  }, []);
 
   const refresh = React.useCallback(async (mode: 'initial' | 'pull' = 'initial') => {
     if (mode === 'pull') setIsRefreshing(true);
@@ -85,6 +100,31 @@ export default function WebsitesScreen() {
           ) : null}
         </View>
 
+        {isLoading ? (
+          <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <Card.Content style={[styles.cardContent, { gap: 10 }]}>
+              <SkeletonBlock height={18} width="55%" radius={8} />
+              <SkeletonBlock height={14} width="35%" radius={8} />
+            </Card.Content>
+          </Card>
+        ) : null}
+        {isLoading ? (
+          <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <Card.Content style={[styles.cardContent, { gap: 10 }]}>
+              <SkeletonBlock height={18} width="60%" radius={8} />
+              <SkeletonBlock height={14} width="40%" radius={8} />
+            </Card.Content>
+          </Card>
+        ) : null}
+        {isLoading ? (
+          <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <Card.Content style={[styles.cardContent, { gap: 10 }]}>
+              <SkeletonBlock height={18} width="50%" radius={8} />
+              <SkeletonBlock height={14} width="30%" radius={8} />
+            </Card.Content>
+          </Card>
+        ) : null}
+
         {websites.map((w) => (
           <Card
             key={w.id}
@@ -102,6 +142,26 @@ export default function WebsitesScreen() {
           >
             <Card.Content style={styles.cardContent}>
               <View style={styles.websiteRow}>
+                <View style={styles.faviconWrap}>
+                  {faviconErrorById[w.id] ? (
+                    <View style={[styles.faviconFallback, { backgroundColor: '#262642' }]}>
+                      <Text variant="labelLarge" style={{ color: theme.colors.onSurface }}>
+                        {faviconFallbackText(w)}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Image
+                      source={{ uri: faviconUrlForDomain(w.domain) }}
+                      style={styles.favicon}
+                      onError={() =>
+                        setFaviconErrorById((prev) => ({
+                          ...prev,
+                          [w.id]: true,
+                        }))
+                      }
+                    />
+                  )}
+                </View>
                 <View style={styles.websiteLeft}>
                   <Text variant="titleMedium">{w.name}</Text>
                   <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -166,6 +226,25 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
+  },
+  faviconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 2,
+  },
+  favicon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+  },
+  faviconFallback: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   websiteLeft: {
     flex: 1,

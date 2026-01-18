@@ -1,3 +1,4 @@
+import { SkeletonBlock } from '@/components/skeleton';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { clearAllCached } from '@/lib/cache/queryCache';
 import {
@@ -147,6 +148,16 @@ export default function SettingsScreen() {
             Connection, preferences, and maintenance.
           </Text>
         </View>
+
+        {isLoading ? (
+          <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <Card.Content style={[styles.cardContent, { gap: 12 }]}>
+              <SkeletonBlock height={18} width="40%" radius={8} />
+              <SkeletonBlock height={14} width="70%" radius={8} />
+              <SkeletonBlock height={14} width="55%" radius={8} />
+            </Card.Content>
+          </Card>
+        ) : null}
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Connection" />

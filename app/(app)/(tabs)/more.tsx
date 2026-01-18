@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import * as React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Icon, Text, useTheme } from 'react-native-paper';
+import { Card, Icon, Snackbar, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function MoreRow({
@@ -38,6 +38,7 @@ function MoreRow({
 
 export default function MoreScreen() {
   const theme = useTheme();
+  const [snack, setSnack] = React.useState<string | null>(null);
 
   return (
     <SafeAreaView
@@ -55,12 +56,6 @@ export default function MoreScreen() {
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Title title="Traffic" />
           <Card.Content style={styles.cardContent}>
-            <MoreRow
-              title="Overview"
-              subtitle="Trend + heatmap + top pages"
-              icon="chart-areaspline"
-              onPress={() => router.push('/(app)/details/traffic/overview')}
-            />
             <MoreRow
               title="Events"
               subtitle="Custom event analytics"
@@ -103,6 +98,30 @@ export default function MoreScreen() {
               icon="file-document-outline"
               onPress={() => router.push('/(app)/details/pages')}
             />
+            <MoreRow
+              title="Goals"
+              subtitle="(Placeholder)"
+              icon="target"
+              onPress={() => setSnack('Goals (coming soon)')}
+            />
+            <MoreRow
+              title="Funnels"
+              subtitle="(Placeholder)"
+              icon="filter-variant"
+              onPress={() => setSnack('Funnels (coming soon)')}
+            />
+            <MoreRow
+              title="Journeys"
+              subtitle="(Placeholder)"
+              icon="map-outline"
+              onPress={() => setSnack('Journeys (coming soon)')}
+            />
+            <MoreRow
+              title="Retention"
+              subtitle="(Placeholder)"
+              icon="repeat-variant"
+              onPress={() => setSnack('Retention (coming soon)')}
+            />
           </Card.Content>
         </Card>
 
@@ -127,9 +146,49 @@ export default function MoreScreen() {
               icon="map-marker-outline"
               onPress={() => router.push('/(app)/details/location')}
             />
+            <MoreRow
+              title="Segments"
+              subtitle="(Placeholder)"
+              icon="account-group-outline"
+              onPress={() => setSnack('Segments (coming soon)')}
+            />
+            <MoreRow
+              title="Cohorts"
+              subtitle="(Placeholder)"
+              icon="chart-box-outline"
+              onPress={() => setSnack('Cohorts (coming soon)')}
+            />
+          </Card.Content>
+        </Card>
+
+        <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+          <Card.Title title="Growth" />
+          <Card.Content style={styles.cardContent}>
+            <MoreRow
+              title="UTM"
+              subtitle="(Placeholder)"
+              icon="tag-outline"
+              onPress={() => setSnack('UTM (coming soon)')}
+            />
+            <MoreRow
+              title="Revenue"
+              subtitle="(Placeholder)"
+              icon="currency-usd"
+              onPress={() => setSnack('Revenue (coming soon)')}
+            />
+            <MoreRow
+              title="Attribution"
+              subtitle="(Placeholder)"
+              icon="source-branch"
+              onPress={() => setSnack('Attribution (coming soon)')}
+            />
           </Card.Content>
         </Card>
       </ScrollView>
+
+      <Snackbar visible={!!snack} onDismiss={() => setSnack(null)} duration={2500}>
+        {snack ?? ''}
+      </Snackbar>
     </SafeAreaView>
   );
 }
