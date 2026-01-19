@@ -16,8 +16,11 @@ Umami Go provides a native mobile experience for interacting with your Umami ana
 - **Website Selection**: Choose a “current website” used by Overview + Realtime
 - **Secure Credential Storage**: Credentials are stored securely on-device
 - **Session Keep-Alive**: Revalidates sessions and auto re-logins for self-hosted instances (when possible)
-- **Smart Caching**: Cached API reads for faster UX and fewer requests
-- **Modern UI**: Built with React Native Paper for a polished, Material Design experience
+- **Smart Caching (SQLite-backed)**: Cached API reads for faster UX and fewer requests
+- **Overview Dashboard**: KPIs, realtime mode, bucketed “views over time” chart, and a world choropleth map
+- **Detail Screens (cache-only)**: “View all” pages read the latest saved snapshot; they never fetch remotely
+- **Theming**: Light/dark mode toggle and theme presets (Material You is currently disabled)
+- **Modern UI**: Built with React Native Paper
 
 ## Tech Stack
 
@@ -26,7 +29,7 @@ Umami Go provides a native mobile experience for interacting with your Umami ana
 - **UI Library**: [React Native Paper](https://callstack.github.io/react-native-paper/) ^5.x
 - **Language**: TypeScript
 - **State Management**: React Context API
-- **Storage**: SecureStore for sensitive credentials, AsyncStorage for non-sensitive data
+- **Storage**: SecureStore for sensitive credentials, AsyncStorage for settings/preferences, SQLite for cache
 
 ## Prerequisites
 
@@ -119,11 +122,25 @@ umami-go/
 │   ├── (app)/             # Main app screens
 │   │   ├── (tabs)/        # Bottom tabs
 │   │   │   ├── _layout.tsx
-│   │   │   ├── overview.tsx
-│   │   │   ├── websites.tsx
-│   │   │   ├── realtime.tsx
-│   │   │   └── settings.tsx
+│   │   │   ├── overview.tsx    # Overview + realtime mode + time range pills
+│   │   │   ├── websites.tsx    # Website list + selection
+│   │   │   ├── more.tsx        # Traffic/Behavior/Audience/Growth entry points (placeholders where needed)
+│   │   │   └── settings.tsx    # App settings + connection management
 │   │   ├── _layout.tsx
+│   │   ├── details/        # “View all” detail pages (cache-only)
+│   │   │   ├── _layout.tsx
+│   │   │   ├── pages.tsx
+│   │   │   ├── sources.tsx
+│   │   │   ├── environment.tsx
+│   │   │   ├── location.tsx
+│   │   │   └── traffic/
+│   │   │       ├── _layout.tsx
+│   │   │       ├── index.tsx
+│   │   │       ├── events.tsx
+│   │   │       ├── sessions.tsx
+│   │   │       ├── runtime.tsx
+│   │   │       ├── compare.tsx
+│   │   │       └── breakdown.tsx
 │   │   └── debug.tsx
 │   ├── (onboarding)/      # Onboarding flow
 │   │   ├── welcome.tsx    # Welcome screen
@@ -131,6 +148,8 @@ umami-go/
 │   │   ├── choice.tsx     # Choose setup type
 │   │   ├── complete.tsx   # Enter credentials
 │   │   └── verify.tsx    # Verify connection
+│   ├── error.tsx          # Global error boundary
+│   ├── +not-found.tsx     # Not-found route
 │   ├── _layout.tsx        # Root layout
 │   └── index.tsx          # Entry point with routing logic
 ├── contexts/              # React Context providers
@@ -141,17 +160,32 @@ umami-go/
 │   │   └── umamiData.ts  # Cached Umami data helpers
 │   ├── cache/            # Query cache primitives
 │   │   └── queryCache.ts
+│   ├── chart/             # Time series bucketing utilities
+│   │   └── timeSeriesBucketing.ts
+│   ├── db/                # SQLite schema + DB access
+│   │   └── sqlite.ts
+│   ├── geo/               # Country mapping helpers
+│   │   └── countryCentroids.ts
 │   ├── session/          # Session + authenticated fetch helpers
 │   │   ├── session.ts
 │   │   └── fetch.ts
 │   └── storage/          # Storage utilities
-│       ├── credentials.ts
 │       ├── singleInstance.ts
+│       ├── settings.ts
 │       └── websiteSelection.ts
+├── components/            # Shared UI components
+│   ├── OverviewMap.tsx
+│   ├── LineChart.tsx
+│   ├── states.tsx
+│   └── ...
 ├── assets/               # Images and static assets
 ├── app.config.ts         # Expo configuration
 └── package.json
 ```
+
+## How “View all” pages work (cache-only)
+
+Detail pages (`app/(app)/details/*`) intentionally **do not fetch remotely**. To update them, refresh the data from **Overview** (pull-to-refresh) for the selected time range; that snapshot is what detail pages display.
 
 ## Building for Production
 
