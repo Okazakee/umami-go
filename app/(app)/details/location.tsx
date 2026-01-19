@@ -1,4 +1,11 @@
 import { RankedRow, ScreenHeader, SectionHeader } from '@/components/details';
+import { EmptyState, ErrorState } from '@/components/states';
+import { type MetricType, getWebsiteMetricsAllStored } from '@/lib/api/umamiData';
+import { type RangeType, calculateIntervals } from '@/lib/chart/timeSeriesBucketing';
+import { lookupCountryCentroid } from '@/lib/geo/countryCentroids';
+import { DEFAULT_SETTINGS, getAppSettings, subscribeAppSettings } from '@/lib/storage/settings';
+import { getSelectedWebsiteId } from '@/lib/storage/websiteSelection';
+import { getDeviceTimeZone } from '@/lib/timezone';
 import * as React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, SegmentedButtons, Text, useTheme } from 'react-native-paper';
@@ -6,20 +13,114 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Tab = 'countries' | 'regions' | 'cities';
 
+function formatCompact(n: number): string {
+  if (!Number.isFinite(n)) return '—';
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+  if (abs >= 1_000) return `${(n / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}K`;
+  return String(Math.round(n));
+}
+
 export default function LocationDetailsScreen() {
   const theme = useTheme();
   const [tab, setTab] = React.useState<Tab>('countries');
   const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [snack, setSnack] = React.useState<string | null>(null);
+  const [settings, setSettings] = React.useState(DEFAULT_SETTINGS);
+  const [settingsLoaded, setSettingsLoaded] = React.useState(false);
+  const [items, setItems] = React.useState<Array<{ x: string; y: number }>>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<unknown | null>(null);
 
-  const refresh = React.useCallback(async () => {
-    setIsRefreshing(true);
-    await new Promise((r) => setTimeout(r, 500));
-    setSnack('Refreshed.');
-    setIsRefreshing(false);
+  React.useEffect(() => {
+    let mounted = true;
+    getAppSettings().then((s) => {
+      if (!mounted) return;
+      setSettings(s);
+      setSettingsLoaded(true);
+    });
+    const unsub = subscribeAppSettings((s) => setSettings(s));
+    return () => {
+      mounted = false;
+      unsub();
+    };
   }, []);
 
+  const loadFromCache = React.useCallback(
+    async (mode: 'initial' | 'pull' = 'initial') => {
+      if (mode === 'pull') setIsRefreshing(true);
+      else setIsLoading(true);
+      setError(null);
+      try {
+        const websiteId = await getSelectedWebsiteId();
+        if (!websiteId) {
+          setItems([]);
+          return;
+        }
+
+        const rangeType = settings.defaultTimeRange as RangeType;
+        const now = Date.now();
+        const rawEndAt =
+          rangeType === 'custom' && settings.customRangeEndAt ? settings.customRangeEndAt : now;
+        const rawStartAt =
+          rangeType === 'custom' && settings.customRangeStartAt
+            ? settings.customRangeStartAt
+            : rangeType === '24h'
+              ? now - 24 * 60 * 60 * 1000
+              : rangeType === '7d'
+                ? now - 7 * 24 * 60 * 60 * 1000
+                : rangeType === '30d'
+                  ? now - 30 * 24 * 60 * 60 * 1000
+                  : rangeType === '90d'
+                    ? now - 90 * 24 * 60 * 60 * 1000
+                    : 0;
+        const basePlan = calculateIntervals(rawStartAt, rawEndAt, rangeType);
+        const endAt = rangeType === 'custom' ? Math.min(rawEndAt, now) : basePlan.endMs;
+        const startAt =
+          rangeType === 'all' ? 0 : rangeType === 'custom' ? rawStartAt : basePlan.startMs;
+        const baseTag = `${settings.defaultTimeRange}:${settings.customRangeStartAt ?? ''}:${settings.customRangeEndAt ?? ''}`;
+
+        // Regions/cities are stored scoped to the top country of the same range (if available).
+        let cacheTag = baseTag;
+        if (tab !== 'countries') {
+          const storedCountries = await getWebsiteMetricsAllStored(
+            websiteId,
+            { type: 'country', startAt, endAt, timezone: getDeviceTimeZone() },
+            200,
+            { cacheTag: baseTag }
+          );
+          const topCountryLabel =
+            typeof storedCountries.data?.[0]?.x === 'string' ? storedCountries.data[0].x : '';
+          const iso2 = lookupCountryCentroid(topCountryLabel)?.iso2 ?? null;
+          if (iso2) cacheTag = `${baseTag}:country=${iso2}`;
+        }
+
+        const metricType: MetricType =
+          tab === 'countries' ? 'country' : tab === 'regions' ? 'region' : 'city';
+        const res = await getWebsiteMetricsAllStored(
+          websiteId,
+          { type: metricType, startAt, endAt, timezone: getDeviceTimeZone() },
+          200,
+          { cacheTag }
+        );
+        setItems(res.data ?? []);
+      } catch (err) {
+        setError(err);
+        setItems([]);
+      } finally {
+        setIsRefreshing(false);
+        setIsLoading(false);
+      }
+    },
+    [settings.customRangeEndAt, settings.customRangeStartAt, settings.defaultTimeRange, tab]
+  );
+
+  React.useEffect(() => {
+    if (!settingsLoaded) return;
+    loadFromCache('initial');
+  }, [loadFromCache, settingsLoaded]);
+
   const title = tab === 'countries' ? 'Location' : tab === 'regions' ? 'Regions' : 'Cities';
+  const top = items[0]?.y ?? 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -29,13 +130,16 @@ export default function LocationDetailsScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={refresh}
+            onRefresh={() => loadFromCache('pull')}
             tintColor={theme.colors.primary}
             colors={[theme.colors.primary]}
           />
         }
       >
-        <ScreenHeader title={title} subtitle="Mock data" />
+        <ScreenHeader
+          title={title}
+          subtitle={isLoading ? 'Loading saved data…' : `Saved data • ${items.length} item(s)`}
+        />
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content style={styles.cardContent}>
@@ -51,118 +155,49 @@ export default function LocationDetailsScreen() {
           </Card.Content>
         </Card>
 
-        <SectionHeader
-          title="Top"
-          actionLabel="More"
-          onPress={() => setSnack('More (coming soon)')}
-        />
+        <SectionHeader title="Top" actionLabel="Saved" />
 
         <Card mode="contained" style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content style={styles.list}>
-            {tab === 'countries' ? (
-              <>
-                <RankedRow
-                  badgeText="IT"
-                  label="Italy"
-                  value="64%"
-                  fraction={0.64}
-                  onPress={() => setSnack('Italy')}
-                />
-                <RankedRow
-                  badgeText="US"
-                  label="United States"
-                  value="18%"
-                  fraction={0.18}
-                  onPress={() => setSnack('United States')}
-                />
-                <RankedRow
-                  badgeText="DE"
-                  label="Germany"
-                  value="4%"
-                  fraction={0.04}
-                  onPress={() => setSnack('Germany')}
-                />
-                <RankedRow
-                  badgeText="GB"
-                  label="United Kingdom"
-                  value="3%"
-                  fraction={0.03}
-                  onPress={() => setSnack('United Kingdom')}
-                />
-              </>
-            ) : tab === 'regions' ? (
-              <>
-                <RankedRow
-                  badgeText="LAZ"
-                  label="Lazio"
-                  value="21%"
-                  fraction={0.21}
-                  onPress={() => setSnack('Lazio')}
-                />
-                <RankedRow
-                  badgeText="LOM"
-                  label="Lombardy"
-                  value="17%"
-                  fraction={0.17}
-                  onPress={() => setSnack('Lombardy')}
-                />
-                <RankedRow
-                  badgeText="CAM"
-                  label="Campania"
-                  value="12%"
-                  fraction={0.12}
-                  onPress={() => setSnack('Campania')}
-                />
-                <RankedRow
-                  badgeText="SIC"
-                  label="Sicily"
-                  value="9%"
-                  fraction={0.09}
-                  onPress={() => setSnack('Sicily')}
-                />
-              </>
+            {error ? (
+              <ErrorState message={(error as { message?: string })?.message ?? String(error)} />
+            ) : items.length > 0 ? (
+              items.map((p, _idx) => {
+                const rawLabel =
+                  typeof (p as { x?: unknown }).x === 'string'
+                    ? ((p as { x: string }).x ?? '')
+                    : '';
+                const label = rawLabel.trim() || '(unknown)';
+                const badge =
+                  tab === 'countries'
+                    ? label === '(unknown)'
+                      ? '??'
+                      : (lookupCountryCentroid(label)?.iso2 ?? label.slice(0, 2).toUpperCase())
+                    : label === '(unknown)'
+                      ? '—'
+                      : label.slice(0, 3).toUpperCase();
+                return (
+                  <RankedRow
+                    key={`${label}:${p.y}:${_idx}`}
+                    badgeText={badge}
+                    label={label}
+                    value={formatCompact(p.y)}
+                    fraction={top > 0 ? p.y / top : 0}
+                  />
+                );
+              })
+            ) : isLoading ? (
+              <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                Loading…
+              </Text>
             ) : (
-              <>
-                <RankedRow
-                  badgeText="RM"
-                  label="Rome"
-                  value="14%"
-                  fraction={0.14}
-                  onPress={() => setSnack('Rome')}
-                />
-                <RankedRow
-                  badgeText="MI"
-                  label="Milan"
-                  value="10%"
-                  fraction={0.1}
-                  onPress={() => setSnack('Milan')}
-                />
-                <RankedRow
-                  badgeText="NA"
-                  label="Naples"
-                  value="6%"
-                  fraction={0.06}
-                  onPress={() => setSnack('Naples')}
-                />
-                <RankedRow
-                  badgeText="TO"
-                  label="Turin"
-                  value="4%"
-                  fraction={0.04}
-                  onPress={() => setSnack('Turin')}
-                />
-              </>
+              <EmptyState
+                title="No saved data yet"
+                description="Open Overview and pull to refresh to save data for this range."
+              />
             )}
           </Card.Content>
         </Card>
-
-        {snack ? (
-          <View style={styles.snackWrap}>
-            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-              {snack}
-            </Text>
-          </View>
-        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -184,9 +219,5 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 10,
-  },
-  snackWrap: {
-    paddingTop: 8,
-    paddingHorizontal: 4,
   },
 });

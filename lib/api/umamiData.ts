@@ -34,6 +34,27 @@ export type MetricPoint = {
   y: number;
 };
 
+export type MetricType =
+  | 'path'
+  | 'entry'
+  | 'exit'
+  | 'title'
+  | 'query'
+  | 'referrer'
+  | 'channel'
+  | 'domain'
+  | 'country'
+  | 'region'
+  | 'city'
+  | 'browser'
+  | 'os'
+  | 'device'
+  | 'language'
+  | 'screen'
+  | 'event'
+  | 'hostname'
+  | 'tag';
+
 export type TimeUnit = 'year' | 'month' | 'day' | 'hour';
 
 export type PageviewsTimeseriesResponse = {
@@ -118,26 +139,7 @@ export async function getWebsiteActiveCached(
 export async function getWebsiteMetricsCached(
   websiteId: string,
   input: {
-    type:
-      | 'path'
-      | 'entry'
-      | 'exit'
-      | 'title'
-      | 'query'
-      | 'referrer'
-      | 'channel'
-      | 'domain'
-      | 'country'
-      | 'region'
-      | 'city'
-      | 'browser'
-      | 'os'
-      | 'device'
-      | 'language'
-      | 'screen'
-      | 'event'
-      | 'hostname'
-      | 'tag';
+    type: MetricType;
     startAt: number;
     endAt: number;
     timezone?: string;
@@ -169,6 +171,82 @@ export async function getWebsiteMetricsCached(
   );
   await setCached(key, fresh);
   return { data: fresh, fromCache: false };
+}
+
+export async function getWebsiteMetricsAllCached(
+  websiteId: string,
+  input: {
+    type: MetricType;
+    startAt: number;
+    endAt: number;
+    timezone?: string;
+    filters?: { country?: string; region?: string; city?: string };
+  },
+  ttlMs = 60 * 1000,
+  pageSize = 200,
+  options?: { cacheTag?: string }
+): Promise<{ data: MetricPoint[]; fromCache: boolean }> {
+  const { prefix, scope } = await instanceInfo();
+  const cacheTag = options?.cacheTag?.trim();
+  const filtersKey =
+    input.filters && (input.filters.country || input.filters.region || input.filters.city)
+      ? `:filters:${input.filters.country ?? ''}:${input.filters.region ?? ''}:${input.filters.city ?? ''}`
+      : '';
+  const key = buildCacheKey(
+    cacheTag
+      ? `${scope}:metrics-all:${prefix}:${websiteId}:${input.type}:tag:${cacheTag}${filtersKey}:${input.timezone ?? ''}:${pageSize}`
+      : `${scope}:metrics-all:${prefix}:${websiteId}:${input.type}:${input.startAt}:${input.endAt}${filtersKey}:${input.timezone ?? ''}:${pageSize}`
+  );
+
+  const cached = await getCached<MetricPoint[]>(key);
+  if (cached && isFresh(cached.storedAt, ttlMs)) {
+    return { data: cached.data, fromCache: true };
+  }
+
+  const out: MetricPoint[] = [];
+  let offset = 0;
+  let guard = 0;
+  while (guard++ < 50) {
+    const qs = toQuery({
+      type: input.type,
+      startAt: input.startAt,
+      endAt: input.endAt,
+      timezone: input.timezone,
+      limit: pageSize,
+      offset,
+      'filters[country]': input.filters?.country,
+      'filters[region]': input.filters?.region,
+      'filters[city]': input.filters?.city,
+    });
+    const page = await sessionFetchJson<MetricPoint[]>(
+      `${prefix}/websites/${websiteId}/metrics${qs}`
+    );
+    const arr = Array.isArray(page) ? page : [];
+    out.push(...arr);
+    if (arr.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  await setCached(key, out);
+  return { data: out, fromCache: false };
+}
+
+export async function getWebsiteMetricsAllStored(
+  websiteId: string,
+  input: { type: MetricType; startAt: number; endAt: number; timezone?: string },
+  pageSize = 200,
+  options?: { cacheTag?: string }
+): Promise<{ data: MetricPoint[]; fromCache: boolean }> {
+  const { prefix, scope } = await instanceInfo();
+  const cacheTag = options?.cacheTag?.trim();
+  const key = buildCacheKey(
+    cacheTag
+      ? `${scope}:metrics-all:${prefix}:${websiteId}:${input.type}:tag:${cacheTag}:${input.timezone ?? ''}:${pageSize}`
+      : `${scope}:metrics-all:${prefix}:${websiteId}:${input.type}:${input.startAt}:${input.endAt}:${input.timezone ?? ''}:${pageSize}`
+  );
+
+  const cached = await getCached<MetricPoint[]>(key);
+  return { data: cached?.data ?? [], fromCache: true };
 }
 
 export async function getWebsitePageviewsCached(

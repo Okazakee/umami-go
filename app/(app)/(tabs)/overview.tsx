@@ -12,10 +12,11 @@ import { SkeletonBlock } from '@/components/skeleton';
 import { EmptyState, ErrorState, mapRequestErrorToUi } from '@/components/states';
 import {
   type MetricPoint,
+  type MetricType,
   type TimeUnit,
   type WebsiteStats,
   getWebsiteActiveCached,
-  getWebsiteMetricsCached,
+  getWebsiteMetricsAllCached,
   getWebsitePageviewsCached,
   getWebsiteStatsCached,
 } from '@/lib/api/umamiData';
@@ -28,6 +29,7 @@ import {
 } from '@/lib/chart/timeSeriesBucketing';
 import { rgbaFromHex } from '@/lib/color';
 import { ensureSelectedWebsiteId } from '@/lib/ensureWebsiteSelection';
+import { lookupCountryCentroid } from '@/lib/geo/countryCentroids';
 import {
   type AppSettings,
   DEFAULT_SETTINGS,
@@ -490,29 +492,76 @@ export default function OverviewScreen() {
           await Promise.all([
             getWebsiteStatsCached(websiteId, { startAt, endAt, timezone }, ttlMs),
             getWebsitePageviewsCached(websiteId, { startAt, endAt, unit, timezone }, ttlMs),
-            getWebsiteMetricsCached(
+            // Fetch and cache full datasets; overview UI will render only top 4.
+            getWebsiteMetricsAllCached(
               websiteId,
-              { type: 'path', startAt, endAt, timezone, limit: 4 },
-              ttlMs
+              { type: 'path', startAt, endAt, timezone },
+              ttlMs,
+              200,
+              { cacheTag: effectiveRangeKey }
             ),
-            getWebsiteMetricsCached(
+            getWebsiteMetricsAllCached(
               websiteId,
-              { type: 'referrer', startAt, endAt, timezone, limit: 3 },
-              ttlMs
+              { type: 'referrer', startAt, endAt, timezone },
+              ttlMs,
+              200,
+              { cacheTag: effectiveRangeKey }
             ),
-            getWebsiteMetricsCached(
+            getWebsiteMetricsAllCached(
               websiteId,
-              { type: 'browser', startAt, endAt, timezone, limit: 3 },
-              ttlMs
+              { type: 'browser', startAt, endAt, timezone },
+              ttlMs,
+              200,
+              { cacheTag: effectiveRangeKey }
             ),
-            getWebsiteMetricsCached(
+            getWebsiteMetricsAllCached(
               websiteId,
-              { type: 'country', startAt, endAt, timezone, limit: 3 },
-              ttlMs
+              { type: 'country', startAt, endAt, timezone },
+              ttlMs,
+              200,
+              { cacheTag: effectiveRangeKey }
             ),
             getWebsiteActiveCached(websiteId, ttlMs),
           ]);
         if (requestId !== requestIdRef.current) return;
+
+        const topCountryIso2 =
+          typeof countriesRes.data?.[0]?.x === 'string'
+            ? (lookupCountryCentroid(countriesRes.data[0].x)?.iso2 ?? null)
+            : null;
+
+        // Best-effort: prefetch other tab datasets so detail pages can stay cache-only.
+        // Regions/cities are stored separately, scoped to top country (see below).
+        const prefetchTypes: MetricType[] = ['entry', 'exit', 'channel', 'os', 'device'];
+        await Promise.allSettled(
+          prefetchTypes.map((type) =>
+            getWebsiteMetricsAllCached(websiteId, { type, startAt, endAt, timezone }, ttlMs, 200, {
+              cacheTag: effectiveRangeKey,
+            })
+          )
+        );
+
+        // Regions/cities: Umami UI is typically scoped to a country. Without scoping,
+        // many installs return null/unknown region/city labels.
+        if (topCountryIso2) {
+          const locationTag = `${effectiveRangeKey}:country=${topCountryIso2}`;
+          await Promise.allSettled([
+            getWebsiteMetricsAllCached(
+              websiteId,
+              { type: 'region', startAt, endAt, timezone, filters: { country: topCountryIso2 } },
+              ttlMs,
+              200,
+              { cacheTag: locationTag }
+            ),
+            getWebsiteMetricsAllCached(
+              websiteId,
+              { type: 'city', startAt, endAt, timezone, filters: { country: topCountryIso2 } },
+              ttlMs,
+              200,
+              { cacheTag: locationTag }
+            ),
+          ]);
+        }
 
         const rawSeries = pageviewsRes.data.pageviews ?? [];
 
@@ -666,6 +715,22 @@ export default function OverviewScreen() {
   }, [data?.seriesUnit, settings.defaultTimeRange]);
 
   const axisTicks = data?.seriesAxisTicks ?? [];
+
+  const mapCountries = React.useMemo(() => {
+    const out: Array<{
+      ccn3: string;
+      label: string;
+      value: number;
+      lat: number;
+      lng: number;
+    }> = [];
+    for (const c of data?.countries ?? []) {
+      const hit = lookupCountryCentroid(c.x);
+      if (!hit) continue;
+      out.push({ ccn3: hit.ccn3, label: hit.name, value: c.y, lat: hit.lat, lng: hit.lng });
+    }
+    return out;
+  }, [data?.countries]);
 
   return (
     <SafeAreaView
@@ -893,9 +958,25 @@ export default function OverviewScreen() {
                 style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
               >
                 <Card.Content style={styles.listCardContent}>
-                  <RankedRow rank={1} label="/" value="412" fraction={1} />
-                  <RankedRow rank={2} label="/pricing" value="128" fraction={0.32} />
-                  <RankedRow rank={3} label="/docs/installation" value="92" fraction={0.22} />
+                  {(data?.pages ?? []).length > 0 ? (
+                    (data?.pages ?? []).slice(0, 4).map((p, idx, arr) => {
+                      const top = arr[0]?.y ?? 0;
+                      const fraction = top > 0 ? p.y / top : 0;
+                      return (
+                        <RankedRow
+                          key={`${p.x}:${p.y}`}
+                          rank={idx + 1}
+                          label={p.x}
+                          value={formatCompact(p.y)}
+                          fraction={fraction}
+                        />
+                      );
+                    })
+                  ) : (
+                    <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                      No data.
+                    </Text>
+                  )}
                 </Card.Content>
               </Card>
 
@@ -909,9 +990,25 @@ export default function OverviewScreen() {
                 style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
               >
                 <Card.Content style={styles.listCardContent}>
-                  <ReferrerRow iconText="G" label="google.com" value="322" fraction={1} />
-                  <ReferrerRow iconText="T" label="t.co" value="204" fraction={0.63} />
-                  <ReferrerRow iconText="D" label="(direct)" value="118" fraction={0.37} />
+                  {(data?.sources ?? []).length > 0 ? (
+                    (data?.sources ?? []).slice(0, 4).map((p, _idx, arr) => {
+                      const top = arr[0]?.y ?? 0;
+                      const fraction = top > 0 ? p.y / top : 0;
+                      return (
+                        <ReferrerRow
+                          key={`${p.x}:${p.y}`}
+                          iconText={iconTextFor(p.x)}
+                          label={p.x}
+                          value={formatCompact(p.y)}
+                          fraction={fraction}
+                        />
+                      );
+                    })
+                  ) : (
+                    <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                      No data.
+                    </Text>
+                  )}
                 </Card.Content>
               </Card>
 
@@ -925,9 +1022,25 @@ export default function OverviewScreen() {
                 style={[styles.listCard, { backgroundColor: theme.colors.surface }]}
               >
                 <Card.Content style={styles.listCardContent}>
-                  <ReferrerRow iconText="IT" label="Italy" value="190" fraction={1} />
-                  <ReferrerRow iconText="US" label="United States" value="53" fraction={0.28} />
-                  <ReferrerRow iconText="DE" label="Germany" value="12" fraction={0.06} />
+                  {(data?.countries ?? []).length > 0 ? (
+                    (data?.countries ?? []).slice(0, 4).map((p, _idx, arr) => {
+                      const top = arr[0]?.y ?? 0;
+                      const fraction = top > 0 ? p.y / top : 0;
+                      return (
+                        <ReferrerRow
+                          key={`${p.x}:${p.y}`}
+                          iconText={iconTextFor(p.x)}
+                          label={p.x}
+                          value={formatCompact(p.y)}
+                          fraction={fraction}
+                        />
+                      );
+                    })
+                  ) : (
+                    <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                      No data.
+                    </Text>
+                  )}
                 </Card.Content>
               </Card>
 
@@ -937,7 +1050,14 @@ export default function OverviewScreen() {
                 style={[styles.bigCard, { backgroundColor: theme.colors.surface }]}
               >
                 <Card.Content style={styles.bigCardContent}>
-                  <OverviewMap height={170} />
+                  <OverviewMap
+                    height={170}
+                    countries={mapCountries.map((c) => ({
+                      ccn3: c.ccn3,
+                      label: c.label,
+                      value: c.value,
+                    }))}
+                  />
                 </Card.Content>
               </Card>
             </>
@@ -1048,7 +1168,7 @@ export default function OverviewScreen() {
               >
                 <Card.Content style={styles.listCardContent}>
                   {(data?.pages ?? []).length > 0 ? (
-                    (data?.pages ?? []).map((p, idx, arr) => {
+                    (data?.pages ?? []).slice(0, 4).map((p, idx, arr) => {
                       const top = arr[0]?.y ?? 0;
                       const fraction = top > 0 ? p.y / top : 0;
                       return (
@@ -1080,7 +1200,7 @@ export default function OverviewScreen() {
               >
                 <Card.Content style={styles.listCardContent}>
                   {(data?.sources ?? []).length > 0 ? (
-                    (data?.sources ?? []).map((p, _idx, arr) => {
+                    (data?.sources ?? []).slice(0, 4).map((p, _idx, arr) => {
                       const top = arr[0]?.y ?? 0;
                       const fraction = top > 0 ? p.y / top : 0;
                       return (
@@ -1112,7 +1232,7 @@ export default function OverviewScreen() {
               >
                 <Card.Content style={styles.listCardContent}>
                   {(data?.browsers ?? []).length > 0 ? (
-                    (data?.browsers ?? []).map((p, _idx, arr) => {
+                    (data?.browsers ?? []).slice(0, 4).map((p, _idx, arr) => {
                       const total = toNumber(data?.stats.visitors) ?? null;
                       const top = arr[0]?.y ?? 0;
                       const fraction = top > 0 ? p.y / top : 0;
@@ -1149,7 +1269,7 @@ export default function OverviewScreen() {
               >
                 <Card.Content style={styles.listCardContent}>
                   {(data?.countries ?? []).length > 0 ? (
-                    (data?.countries ?? []).map((p, _idx, arr) => {
+                    (data?.countries ?? []).slice(0, 4).map((p, _idx, arr) => {
                       const total = toNumber(data?.stats.visitors) ?? null;
                       const top = arr[0]?.y ?? 0;
                       const fraction = top > 0 ? p.y / top : 0;
@@ -1180,7 +1300,14 @@ export default function OverviewScreen() {
                 mode="contained"
                 style={[styles.bigCard, { backgroundColor: theme.colors.surface }]}
               >
-                <OverviewMap height={250} />
+                <OverviewMap
+                  height={250}
+                  countries={mapCountries.map((c) => ({
+                    ccn3: c.ccn3,
+                    label: c.label,
+                    value: c.value,
+                  }))}
+                />
               </Card>
 
               <SectionHeader title="Traffic" hideAction />
